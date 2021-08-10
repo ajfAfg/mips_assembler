@@ -20,17 +20,18 @@ be found at [https://hexdocs.pm/mips_assembler](https://hexdocs.pm/mips_assemble
 ## BNF
 
 ```EBNF
-program = { stmt } ;
+program = { stmt }, <EOF> ;
 
-stmt = ws, stat, ws, <NEW_LINE> | ws, [ <NEW_LINE> ] ;
+stmt = ws, stat, ws, ( <NEW_LINE> | <EOF> )
+       | [ ws ], ( <NEW_LINE> | <EOF> );
 
 stat = label, ws, instruction
      | label
      | instruction ;
 
-label = ( char | "_" ), { ( char | digit | "_" ) }, ":" ;
+label = identifier, ":" ;
 
-instrution = op_code ws operand, [ ws, ",", ws, operand, [ ws, ",", ws, operand ] ]
+instrution = op_code, ws, operand, [ ws, ",", ws, operand, [ ws, ",", ws, operand ] ]
 
 op_code = "add" | "sub" | "mult" | "div" | "addi"
         | "addu" | "subu" | "multu" | "divu" | "addiu"
@@ -39,18 +40,21 @@ op_code = "add" | "sub" | "mult" | "div" | "addi"
         | "lw" | "sw" | "mfhi" | "mflo" | "mthi" | "mtlo"
         | "slt" | "sltu" | "slti" | "sltiu"
         | "beq" | "bne" | "bgez" | "bgtz" | "blez" | "bltz"
-        | "j" | "jal" | "jr" | "jalr"
+        | "j" | "jal" | "jr" | "jalr" ;
 operand = register
         | "(", ws, register, ws, ")"
         | addr_immd, ws, [ "(", ws, register, ws, ")" ]
+        | identifier, ( ws | <NEW_LINE> | <EOF> ) ;
 
 register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
          | "$a0" | "$a1" | "$a2" | "$a3"
          | "$t0" | "$t1" | "$t2" | "$t3" | "$t4" | "$t5" | "$t6" | "$t7" | "$t8" | "$t9"
          | "$s0" | "$s1" | "$s2" | "$s3" | "$s4" | "$s5" | "$s6" | "$s7"
-         | "$k0" | "$k1" | "$gp" | "$sp" | "$fp" | "$ra"
+         | "$k0" | "$k1" | "$gp" | "$sp" | "$fp" | "$ra" ;
 
-addr_immd = [ "+" | "-" ], ws, { digit }
+addr_immd = [ "+" | "-" ], ws, { digit } ;
+
+identifier = ( char | "_" ), { ( char | digit | "_" ) } ;
 
 char = "A" | "B" | "C" | "D" | "E" | "F" | "G"
      | "H" | "I" | "J" | "K" | "L" | "M" | "N"

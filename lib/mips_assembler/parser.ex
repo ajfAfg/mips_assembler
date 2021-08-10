@@ -1,9 +1,11 @@
 defmodule MipsAssembler.Parser do
+  @init_element %{label: "", operand: {}}
+
   @moduledoc """
   ok
   """
 
-  @init_element %{label: "", operand: {}}
+  import MipsAssembler.Either, only: [ok: 1, error: 1, chain: 2]
 
   def parse(string) do
     string
@@ -11,15 +13,43 @@ defmodule MipsAssembler.Parser do
     |> parse_program()
   end
 
-  def init(string),
-    do: %{
+  def init(string) do
+    %{
       string: remove_comment(string),
       statements: [],
       current: %{line_number: 0, element: @init_element}
     }
+  end
 
+  @doc ~S"""
+  remove comment
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [remove_comment: 1]
+      iex> remove_comment("aaa#bbb\n#\nccc")
+      "aaa\n\nccc"
+  """
   def remove_comment(string), do: String.replace(string, ~r{#.*}, "")
 
+  @doc ~S"""
+  program
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_program: 1]
+      iex> program = "_start:\n    add\t$t0, $t1, $t2\nj    foo\nfoo:"
+      iex> state = %{
+      ...>   string: program,
+      ...>   statements: [],
+      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...> }
+      iex> parse_program(state)
+  """
+  # [
+  #   {:ok, {3, %{label: "foo", operand: {}}}},
+  #   {:ok, {2, %{label: "", operand: {"j", "foo"}}}},
+  #   {:ok, {1, %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}},
+  #   {:ok, {0, %{label: "_start", operand: {}}}}
+  # ]
   def parse_program(%{string: "", statements: statements}), do: statements
 
   def parse_program(state) do
@@ -29,21 +59,98 @@ defmodule MipsAssembler.Parser do
     |> parse_program()
   end
 
-  defp next_stmt({:error, state}) do
-    state
-    |> skip_current_statement()
-    |> put_in([:current, :element], @init_element)
+  @doc ~S"""
+  stmt
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_stmt: 1]
+      iex> state = %{
+      ...>   string: "\t foo: add $t0, $t1, $t2\t \n",
+      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...> }
+      iex> parse_stmt(state)
+      {
+        :ok,
+        %{
+          string: "",
+          current: %{line_number: 1, element: %{label: "foo", operand: {"add", "$t0", "$t1", "$t2"}}}
+        }
+      }
+      iex> state = %{string: "\t \t\n", current: %{line_number: 0, element: %{label: "", operand: {}}}}
+      iex> parse_stmt(state)
+      {:ok, %{string: "", current: %{line_number: 1, element: %{label: "", operand: {}}}}}
+  """
+
+  def parse_stmt(state) do
+    case {parse_stmt_one(state), parse_stmt_two(state)} do
+      {ok = {:ok, _state}, _} -> ok
+      {_, ok = {:ok, _state}} -> ok
+      _ -> error(state)
+    end
   end
 
-  # defp next_stmt(state = %{current: current}),
-  #   do: %{state | current: %{current | element: %{lebel: "", operand: {}}}}
+  defp parse_stmt_one(state) do
+    state
+    |> ok()
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_stat/1)
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_new_line_or_eof/1)
+  end
+
+  defp parse_stmt_two(state) do
+    state
+    |> ok()
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_new_line_or_eof/1)
+
+    # state
+    # |> ok()
+    # |> chain(&skip_white_space/1)
+    # |> chain(&parse_new_line/1)
+    # |> case do
+    #   {:error, state} -> ok(state)
+    #   state -> ok(state)
+    # end
+  end
+
+  defp parse_new_line_or_eof(state) do
+    parse_one = fn state ->
+      state
+      |> ok()
+      |> chain(&parse_new_line/1)
+    end
+
+    parse_two = fn state ->
+      state
+      |> ok()
+      |> chain(&parse_eof/1)
+    end
+
+    case {parse_one.(state), parse_two.(state)} do
+      {ok = {:ok, _state}, _} -> ok
+      {_, ok = {:ok, _state}} -> ok
+      _ -> error(state)
+    end
+  end
+
   defp next_stmt(
-         state = %{statements: statements, current: %{line_number: line_number, element: element}}
+         {:ok,
+          state = %{
+            statements: statements,
+            current: %{line_number: line_number, element: element}
+          }}
        ) do
-    statement = {:ok, {line_number, element}}
+    statement = ok({line_number, element})
 
     state
     |> put_in([:statements], [statement | statements])
+    |> put_in([:current, :element], @init_element)
+  end
+
+  defp next_stmt({:error, state}) do
+    state
+    |> skip_current_statement()
     |> put_in([:current, :element], @init_element)
   end
 
@@ -54,135 +161,197 @@ defmodule MipsAssembler.Parser do
            current: %{line_number: line_number}
          }
        ) do
-    rest = String.trim_leading(string, "\n")
-    statement = {:error, {line_number, @init_element}}
+    # rest = String.trim_leading(string, "\n")
+    rest = Regex.replace(~r{^.*\n}f, string, "")
+    statement = error({line_number, @init_element})
     %{state | string: rest, statements: [statement | statements]}
   end
 
-  def parse_stmt(error = {:error, _state}), do: error
+  @doc """
+  stat
 
-  def parse_stmt(state) do
-    case {parse_stmt_one(state), parse_stmt_two(state)} do
-      {{:error, _}, state} -> state
-      {state, _} -> state
-    end
-  end
-
-  defp parse_stmt_one(state) do
-    state
-    |> parse_white_space()
-    |> parse_stat()
-    |> parse_white_space()
-    |> parse_new_line()
-  end
-
-  defp parse_stmt_two(state) do
-    state
-    |> parse_white_space()
-    |> parse_new_line()
-    |> case do
-      {:error, state} -> state
-      state -> state
-    end
-  end
-
-  #   def parse_stmt(%{string: "\n" <> rest, statements: statements}) do
-  #     statement = {:ok, {length(statements), %{}}}
-  #     %{string: rest, statements: [statement | statements]}
-  #   end
-  #
-  #   def parse_stmt(state) do
-  #     state
-  #     |> parse_stat()
-  #     |> parse_white_space()
-  #     |> parse_stmt_end()
-  #   end
-
-  def parse_stat(error = {:error, _state}), do: error
-
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_stat: 1]
+      iex> state = %{
+      ...>   string: "foo: add $t0, $t1, $t2",
+      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...> }
+      iex> parse_stat(state)
+      {
+        :ok,
+        %{
+          string: "",
+          current: %{line_number: 0, element: %{label: "foo", operand: {"add", "$t0", "$t1", "$t2"}}}
+        }
+      }
+      iex> state = %{
+      ...>   string: "foo:",
+      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...> }
+      iex> parse_stat(state)
+      {
+        :ok,
+        %{
+          string: "",
+          current: %{line_number: 0, element: %{label: "foo", operand: {}}}
+        }
+      }
+      iex> state = %{
+      ...>   string: "add $t0, $t1, $t2",
+      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...> }
+      iex> parse_stat(state)
+      {
+        :ok,
+        %{
+          string: "",
+          current: %{line_number: 0, element: %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}
+        }
+      }
+  """
   def parse_stat(state) do
     case {parse_stat_one(state), parse_stat_two(state), parse_stat_three(state)} do
-      {{:error, _}, {:error, _}, state} -> state
-      {{:error, _}, state, _} -> state
-      {state, _, _} -> state
+      {ok = {:ok, _state}, _, _} -> ok
+      {_, ok = {:ok, _state}, _} -> ok
+      {_, _, ok = {:ok, _state}} -> ok
+      _ -> error(state)
     end
   end
 
   defp parse_stat_one(state) do
     state
-    |> parse_label()
-    |> parse_white_space()
-    |> parse_instruction()
+    |> ok()
+    |> chain(&parse_label/1)
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_instruction/1)
   end
 
   defp parse_stat_two(state) do
     state
-    |> parse_label()
+    |> ok()
+    |> chain(&parse_label/1)
   end
 
   defp parse_stat_three(state) do
     state
-    |> parse_instruction()
+    |> ok()
+    |> chain(&parse_instruction/1)
   end
 
-  def parse_label(error = {:error, _state}), do: error
+  @doc """
+  label
 
-  def parse_label(state = %{string: string, current: current = %{element: element}}) do
-    case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*:}f, string, include_captures: true) do
-      [label, rest] ->
-        element = %{element | label: label}
-        %{state | string: rest, current: %{current | element: element}}
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_label: 1]
+      iex> parse_label(%{string: "_foo:", current: %{element: %{operand: {}}}})
+      {:ok, %{string: "", current: %{element: %{label: "_foo", operand: {}}}}}
+      iex> parse_label(%{string: "_foo", current: %{element: %{operand: {}}}})
+      {:error, %{string: "", current: %{element: %{label: "_foo", operand: {}}}}}
+  """
+  # def parse_label(state = %{string: string, current: current = %{element: element}}) do
+  def parse_label(state) do
+    state
+    |> ok()
+    |> chain(&parse_identifier(&1, path: [:current, :element, :label]))
+    |> chain(&parse_colon/1)
 
-      _ ->
-        {:error, state}
-    end
+    #     case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*:}f, string, include_captures: true) do
+    #       [label, rest] ->
+    #         #         element = %{element | label: label}
+    #         #
+    #         #         %{state | string: rest, current: %{current | element: element}} |> ok()
+    #         state
+    #         |> put_in([:current, :element, :label], label)
+    #         |> put_in([:string], rest)
+    #         |> ok()
+    #
+    #       list ->
+    #         IO.inspect(list)
+    #         error(state)
+    #     end
   end
 
-  def parse_instruction(error = {:error, _state}), do: error
+  # def parse_label(state), do: error(state)
 
+  @doc ~S"""
+  instruction
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_instruction: 1]
+      iex> state = %{string: "add $t0, $t1, $t2", current: %{line_number: 0, element: %{operand: {}}}}
+      iex> parse_instruction(state)
+      {:ok, %{string: "", current: %{line_number: 0, element: %{operand: {"add", "$t0", "$t1", "$t2"}}}}}
+      iex> parse_instruction(%{state | string: "mult $t0, $t1"})
+      {:ok, %{string: "", current: %{line_number: 0, element: %{operand: {"mult", "$t0", "$t1"}}}}}
+      iex> parse_instruction(%{state | string: "j foo\nhoge"})
+      {:ok, %{string: "hoge", current: %{line_number: 1, element: %{operand: {"j", "foo"}}}}}
+      iex> parse_instruction(%{state | string: "add$t0,$t1,$t2"})
+      {:error, %{string: "$t0,$t1,$t2", current: %{line_number: 0, element: %{operand: {"add"}}}}}
+  """
   def parse_instruction(state) do
     parse_optional = fn state ->
       state
-      |> parse_white_space()
-      |> parse_comma()
-      |> parse_white_space()
-      |> parse_operand()
+      |> ok()
+      |> chain(&skip_white_space/1)
+      |> chain(&parse_comma/1)
+      |> chain(&skip_white_space/1)
+      |> chain(&parse_operand/1)
+      |> case do
+        ok = {:ok, _state} -> ok
+        {:error, state} -> ok(state)
+      end
     end
 
     state
-    |> parse_op_code()
-    |> parse_white_space()
-    |> parse_operand()
-    |> parse_white_space()
-    |> parse_optional.()
+    |> ok()
+    |> chain(&parse_op_code/1)
+    |> chain(&parse_white_space/1)
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_operand/1)
     |> case do
-      {:error, state} ->
-        state
+      err = {:error, _state} ->
+        err
 
-      state ->
-        parse_optional.(state)
-        |> case do
-          {:error, state} -> state
-          state -> state
-        end
+      {:ok, state} ->
+        state
+        |> ok()
+        |> chain(parse_optional)
+        |> chain(parse_optional)
     end
   end
 
-  def parse_op_code(error = {:error, _state}), do: error
+  @doc """
+  op_code
 
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_op_code: 1]
+      iex> state = %{string: "add $t0, $t1, $t2", current: %{element: %{operand: {}}}}
+      iex> parse_op_code(state)
+      {:ok, %{string: " $t0, $t1, $t2", current: %{element: %{operand: {"add"}}}}}
+      iex> parse_op_code(%{state | string: "aff $t0, $t1, $t2"})
+      {:error, %{string: "aff $t0, $t1, $t2", current: %{element: %{operand: {}}}}}
+  """
   def parse_op_code(
         state = %{
           string: string,
           current: %{element: %{operand: operand}}
         }
       ) do
-    {op_code, rest} = _parse_op_code(string)
-    operand = Tuple.append(operand, op_code)
+    case _parse_op_code(string) do
+      {"", ^string} ->
+        error(state)
 
-    state
-    |> put_in([:current, :element, :operand], operand)
-    |> put_in([:string], rest)
+      {op_code, rest} ->
+        operand = Tuple.append(operand, op_code)
+
+        state
+        |> put_in([:current, :element, :operand], operand)
+        |> put_in([:string], rest)
+        |> ok()
+    end
   end
+
+  def parse_op_code(state), do: error(state)
 
   defp _parse_op_code("add" <> rest), do: {"add", rest}
   defp _parse_op_code("sub" <> rest), do: {"sub", rest}
@@ -227,63 +396,147 @@ defmodule MipsAssembler.Parser do
   defp _parse_op_code("jal" <> rest), do: {"jal", rest}
   defp _parse_op_code("jr" <> rest), do: {"jr", rest}
   defp _parse_op_code("jalr" <> rest), do: {"jalr", rest}
+  defp _parse_op_code(string), do: {"", string}
 
-  def parse_operand(error = {:error, _state}), do: error
+  @doc ~S"""
+  operand
 
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_operand: 1]
+      iex> state = %{string: "$t0", current: %{element: %{operand: {"lw"}}}}
+      iex> parse_operand(state)
+      {:ok, %{string: "", current: %{element: %{operand: {"lw", "$t0"}}}}}
+      iex> parse_operand(%{state | string: "($t0)"})
+      {:ok, %{string: "", current: %{element: %{operand: {"lw", "$t0"}}}}}
+      iex> parse_operand(%{state | string: "-4($t0)"})
+      {:ok, %{string: "", current: %{element: %{operand: {"lw", "-4", "$t0"}}}}}
+      iex> parse_operand(%{string: "foo\nbaz", current: %{line_number: 0, element: %{operand: {"j"}}}})
+      {:ok, %{string: "baz", current: %{line_number: 1, element: %{operand: {"j", "foo"}}}}}
+      iex> parse_operand(%{state | string: "foo($t0)"})
+      {:error, %{string: "foo($t0)", current: %{element: %{operand: {"lw"}}}}}
+  """
   def parse_operand(state) do
-    case {parse_operand_one(state), parse_operand_two(state), parse_operand_three(state)} do
-      {{:error, _}, {:error, _}, state} ->
-        state
-
-      {{:error, _}, state, _} ->
-        state
-
-      {state, _, _} ->
-        state
+    case {parse_operand_one(state), parse_operand_two(state), parse_operand_three(state),
+          parse_operand_four(state)} do
+      {ok = {:ok, _state}, _, _, _} -> ok
+      {_, ok = {:ok, _state}, _, _} -> ok
+      {_, _, ok = {:ok, _state}, _} -> ok
+      {_, _, _, ok = {:ok, _state}} -> ok
+      _ -> error(state)
     end
   end
 
   defp parse_operand_one(state) do
     state
-    |> parse_register()
+    |> ok()
+    |> chain(&parse_register/1)
   end
 
   defp parse_operand_two(state) do
     state
-    |> parse_right_round_bracket()
-    |> parse_white_space()
-    |> parse_register()
-    |> parse_white_space()
-    |> parse_left_round_bracket()
+    |> ok()
+    |> chain(&parse_right_round_bracket/1)
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_register/1)
+    |> chain(&skip_white_space/1)
+    |> chain(&parse_left_round_bracket/1)
   end
 
-  def parse_operand_three(state) do
-    state
-    |> parse_addr_immd()
-    |> parse_white_space()
-    |> Kernel.then(fn state ->
+  defp parse_operand_three(state) do
+    parse_optional = fn state ->
       state
-      |> parse_right_round_bracket()
-      |> parse_white_space()
-      |> parse_register()
-      |> parse_white_space()
-      |> parse_left_round_bracket()
-    end)
+      |> ok()
+      |> chain(&parse_right_round_bracket/1)
+      |> chain(&skip_white_space/1)
+      |> chain(&parse_register/1)
+      |> chain(&skip_white_space/1)
+      |> chain(&parse_left_round_bracket/1)
+      |> case do
+        ok = {:ok, _state} -> ok
+        {:error, state} -> ok(state)
+      end
+    end
+
+    state
+    |> ok()
+    |> chain(&parse_addr_immd/1)
+    |> chain(&skip_white_space/1)
     |> case do
-      {:error, state} -> state
-      state -> state
+      err = {:error, _state} ->
+        err
+
+      {:ok, state} ->
+        state
+        |> parse_optional.()
     end
   end
 
-  def parse_register(error = {:error, _state}), do: error
+  defp parse_operand_four(state) do
+    parse_white_space_or_new_line_or_eof = fn state ->
+      #       parse_one = fn state ->
+      #         state
+      #         |> ok()
+      #         |> chain(&parse_white_space/1)
+      #
+      #         # |> chain(&skip_white_space/1)
+      #         # |> case do
+      #         #   {:ok, ^state} -> error(state)
+      #         #   ok = {:ok, _state} -> ok
+      #         # end
+      #       end
+      #
+      #       parse_two = fn state ->
+      #         state
+      #         |> ok()
+      #         |> chain(&parse_new_line/1)
+      #       end
+      #
+      #       parse_three = fn state ->
+      #         state
+      #         |> ok()
+      #         |> chain(&parse_eof/1)
+      #       end
 
-  def parse_register(state = %{string: string, current: %{element: %{operand: operand}}}) do
-    {register, rest} = _parse_register(string)
+      # case {parse_one.(state), parse_two.(state), parse_three.(state)} do
+      case {parse_white_space(state), parse_new_line(state), parse_eof(state)} do
+        {ok = {:ok, _state}, _, _} -> ok
+        {_, ok = {:ok, _state}, _} -> ok
+        {_, _, ok = {:ok, _state}} -> ok
+        _ -> error(state)
+      end
+    end
 
     state
-    |> put_in([:current, :element, :operand], Tuple.append(operand, register))
-    |> put_in([:string], rest)
+    |> ok()
+    |> chain(&parse_identifier(&1, path: [:current, :element, :operand]))
+    |> chain(parse_white_space_or_new_line_or_eof)
   end
+
+  @doc """
+  register
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_register: 1]
+      iex> state = %{string: "$t0, $t1, $t2", current: %{element: %{operand: {"add"}}}}
+      iex> parse_register(state)
+      {:ok, %{string: ", $t1, $t2", current: %{element: %{operand: {"add", "$t0"}}}}}
+      iex> parse_register(%{state | string: "foo"})
+      {:error, %{string: "foo", current: %{element: %{operand: {"add"}}}}}
+  """
+  def parse_register(state = %{string: string, current: %{element: %{operand: operand}}}) do
+    case _parse_register(string) do
+      {"", ^string} ->
+        error(state)
+
+      {register, rest} ->
+        state
+        |> put_in([:current, :element, :operand], Tuple.append(operand, register))
+        |> put_in([:string], rest)
+        |> ok()
+    end
+  end
+
+  def parse_register(state), do: error(state)
 
   defp _parse_register("$zero" <> rest), do: {"$zero", rest}
   defp _parse_register("$at" <> rest), do: {"$at", rest}
@@ -318,279 +571,203 @@ defmodule MipsAssembler.Parser do
   defp _parse_register("$sp" <> rest), do: {"$sp", rest}
   defp _parse_register("$fp" <> rest), do: {"$fp", rest}
   defp _parse_register("$ra" <> rest), do: {"$ra", rest}
+  defp _parse_register(string), do: {"", string}
 
-  def parse_addr_immd(error = {:error, _state}), do: error
+  @doc """
+  addr immd
 
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_addr_immd: 1]
+      iex> state = %{string: "-4($t0)", current: %{element: %{operand: {"lw"}}}}
+      iex> parse_addr_immd(state)
+      {:ok, %{string: "($t0)", current: %{element: %{operand: {"lw", "-4"}}}}}
+      iex> parse_addr_immd(%{state | string: "foo"})
+      {:error, %{string: "foo", current: %{element: %{operand: {"lw"}}}}}
+  """
   def parse_addr_immd(state = %{string: string, current: %{element: %{operand: operand}}}) do
     case Regex.split(~r{^(\+|\-)?[[:blank:]]*\d+}f, string, trim: true, include_captures: true) do
       [addr_immd, rest] ->
         state
         |> put_in([:current, :element, :operand], Tuple.append(operand, addr_immd))
         |> put_in([:string], rest)
+        |> ok()
 
       _ ->
-        {:error, state}
+        error(state)
     end
   end
 
+  def parse_addr_immd(state), do: error(state)
+
+  @doc """
+  white space
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_white_space: 1]
+      iex> parse_white_space(%{string: " \tfoo \t"})
+      {:ok, %{string: "\tfoo \t"}}
+      iex> parse_white_space(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
   def parse_white_space(state = %{string: <<char::bytes-size(1)>> <> rest})
       when char === " " or char === "\t",
-      do: parse_white_space(%{state | string: rest})
+      do: ok(%{state | string: rest})
 
-  def parse_white_space(state), do: state
+  def parse_white_space(state), do: error(state)
 
+  @doc ~S"""
+  new line
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_new_line: 1]
+      iex> state = %{string: "\nfoo", current: %{line_number: 0}}
+      iex> parse_new_line(state)
+      {:ok, %{string: "foo", current: %{line_number: 1}}}
+      iex> parse_new_line(%{state | string: "foo"})
+      {:error, %{string: "foo", current: %{line_number: 0}}}
+  """
   def parse_new_line(
-        state = %{
-          string: <<char::bytes-size(1)>> <> rest,
-          current: current = %{line_number: line_number}
-        }
-      )
-      when char === "\n" or char === "\r\n",
-      do: %{state | string: rest, current: %{current | line_number: line_number + 1}}
+        state = %{string: "\n" <> rest, current: current = %{line_number: line_number}}
+      ),
+      do: %{state | string: rest, current: %{current | line_number: line_number + 1}} |> ok()
 
-  def parse_new_line(state), do: {:error, state}
+  def parse_new_line(state), do: error(state)
 
+  @doc """
+  string_end
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_eof: 1]
+      iex> parse_eof(%{string: ""})
+      {:ok, %{string: ""}}
+      iex> parse_eof(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
+  def parse_eof(state = %{string: ""}), do: ok(state)
+  def parse_eof(state), do: error(state)
+
+  @doc ~S"""
+  identifier
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_identifier: 2]
+      iex> state = %{string: "foo", current: %{element: %{label: "", operand: {"j"}}}}
+      iex> parse_identifier(state, path: [:current, :element, :operand])
+      {:ok, %{string: "", current: %{element: %{label: "", operand: {"j", "foo"}}}}}
+      iex> state = %{string: "_foo:", current: %{element: %{label: "", operand: {}}}}
+      iex> parse_identifier(state, path: [:current, :element, :label])
+      {:ok, %{string: ":", current: %{element: %{label: "_foo", operand: {}}}}}
+      iex> state = %{string: "foo\nbar", current: %{element: %{label: "", operand: {"j"}}}}
+      iex> parse_identifier(state, path: [:current, :element, :operand])
+      {:ok, %{string: "\nbar", current: %{element: %{label: "", operand: {"j", "foo"}}}}}
+  """
+  def parse_identifier(
+        state = %{string: string, current: %{element: %{operand: operand}}},
+        path: path
+      ) do
+    # case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*}f, string,
+    case Regex.split(~r{^([a-zA-Z]|_)([a-zA-Z]|\d|_)*}f, string,
+           # case Regex.split(~r{^([[:alpha]]|_)(\w|\d|_)*}f, string,
+           include_captures: true,
+           trim: true
+         ) do
+      [label, rest] -> {label, rest}
+      [label] -> {label, ""}
+      _ -> {"", ""}
+    end
+    |> case do
+      {"", ""} ->
+        error(state)
+
+      {label, rest} ->
+        put_in_selectively = fn state ->
+          case path do
+            [:current, :element, :operand] ->
+              put_in(state, path, Tuple.append(operand, label))
+
+            [:current, :element, :label] ->
+              put_in(state, path, label)
+          end
+        end
+
+        state
+        |> put_in_selectively.()
+        |> put_in([:string], rest)
+        |> ok()
+    end
+  end
+
+  def parse_identifier(state, _path), do: error(state)
+
+  @doc """
+  right round bracket
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_right_round_bracket: 1]
+      iex> parse_right_round_bracket(%{string: "(foo"})
+      {:ok, %{string: "foo"}}
+      iex> parse_right_round_bracket(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
   def parse_right_round_bracket(state = %{string: "(" <> rest}),
-    do: put_in(state, [:string], rest)
+    do: put_in(state, [:string], rest) |> ok()
 
-  def parse_right_round_bracket(state), do: {:error, state}
+  def parse_right_round_bracket(state), do: error(state)
 
+  @doc """
+  left round bracket
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_left_round_bracket: 1]
+      iex> parse_left_round_bracket(%{string: ")foo"})
+      {:ok, %{string: "foo"}}
+      iex> parse_left_round_bracket(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
   def parse_left_round_bracket(state = %{string: ")" <> rest}),
-    do: put_in(state, [:string], rest)
+    do: put_in(state, [:string], rest) |> ok()
 
-  def parse_left_round_bracket(state), do: {:error, state}
+  def parse_left_round_bracket(state), do: error(state)
 
-  def parse_comma(state = %{string: "," <> rest}), do: put_in(state, [:string], rest)
-  def parse_comma(state), do: {:error, state}
+  @doc """
+  comma
 
-  # defp parse_stmt_end(%{
-  #        string: <<char::bytes-size(1)>> <> rest,
-  #        statements: statements,
-  #        result: {:ok, info}
-  #      })
-  #      when char === ";" or char === "\n" do
-  #   statement = {:ok, {length(statements), info}}
-  #   %{string: rest, statements: [statement | statements]}
-  # end
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_comma: 1]
+      iex> parse_comma(%{string: ",foo"})
+      {:ok, %{string: "foo"}}
+      iex> parse_comma(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
+  def parse_comma(state = %{string: "," <> rest}), do: put_in(state, [:string], rest) |> ok()
+  def parse_comma(state), do: error(state)
 
-  # defp parse_stmt_end(state), do: skip_current_statement(state)
+  @doc """
+  colon
 
-  #   alias MipsAssembler.Instruction.R
-  #   alias MipsAssembler.Instruction.I
-  #   alias MipsAssembler.Instruction.J
-  #
-  #   def parse(string) do
-  #     parse_label(string, [], %{})
-  #   end
-  #
-  #   def parse_label(string, instructions, labels) do
-  #     {string, labels} =
-  #       case String.split(string, ~r{:}, parts: 2) do
-  #         [label, string] ->
-  #           {string, update_labels(label, labels, length(instructions))}
-  #
-  #         [string] ->
-  #           {string, labels}
-  #       end
-  #
-  #     parse_op(string, instructions, labels)
-  #   end
-  #
-  #   def parse_op("", instructions, labels), do: {instructions, labels}
-  #
-  #   def parse_op(<<blank::bytes-size(1)>> <> string, instructions, labels)
-  #       when blank == " " or blank == "\t" or blank == "\n" do
-  #     parse_op(string, instructions, labels)
-  #   end
-  #
-  #   # def parse_op("add" <> string, instructions, labels),
-  #   #   do: parse_other(string, instructions, labels, "add")
-  #   def parse_op(string, instructions, labels) do
-  #     # IO.inspect(string)
-  #
-  #     case String.split(string, ~r{\s}, parts: 2) do
-  #       [op, string] -> parse_other(string, instructions, labels, op)
-  #     end
-  #
-  #     parse_other(string, instructions, labels, "add")
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "add" or op === "sub" or op === "addu" or op === "subu" or op === "and" or
-  #              op === "or" or op === "nor" or op === "xor" or op === "sllv" or op === "srlv" or
-  #              op === "srav" or op === "slt" or op === "sltu" do
-  #     {rd, rs, rt, string} =
-  #       case String.split(string, ~r{,}, parts: 4) do
-  #         [rd, rs, rt, string] ->
-  #           {rd, rs, rt, string}
-  #
-  #         [rd, rs, rt] ->
-  #           {rd, rs, rt, ""}
-  #
-  #         x ->
-  #           IO.inspect(["parse_other/4", x])
-  #           {"", "", "", String.split(string, ~r{\n}, parts: 2) |> List.last()}
-  #       end
-  #
-  #     # instruction = %{op: op, rd: rd, rs: rs, rt: rt, form: :r}
-  #     instruction = R.new(%{op: op, rd: rd, rs: rs, rt: rt})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "mult" or op === "div" or op === "multu" or op === "divu" do
-  #     {rs, rt, string} =
-  #       case String.split(string, ~r{,}, parts: 3) do
-  #         [rs, rt, string] ->
-  #           {rs, rt, string}
-  #
-  #         [rs, rt] ->
-  #           {rs, rt, ""}
-  #
-  #         _ ->
-  #           IO.inspect("error")
-  #           {"", "", String.split(string, ~r{\n}, parts: 2) |> List.last()}
-  #       end
-  #
-  #     # instruction = %{op: op, rs: rs, rt: rt, form: :r}
-  #     instruction = R.new(%{op: op, rs: rs, rt: rt})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "sll" or op === "srl" or op === "sra" do
-  #     {rd, rt, shamt, string} =
-  #       case String.split(string, ~r{,}, parts: 4) do
-  #         [rd, rt, shamt, string] ->
-  #           {rd, rt, shamt, string}
-  #
-  #         [rd, rt, shamt] ->
-  #           {rd, rt, shamt, ""}
-  #
-  #         _ ->
-  #           IO.inspect("error")
-  #           {"", "", "", String.split(string, ~r{\n}, parts: 2) |> List.last()}
-  #       end
-  #
-  #     # instruction = %{op: op, rd: rd, rt: rt, shamt: shamt, form: :r}
-  #     instruction = R.new(%{op: op, rd: rd, rt: rt, shamt: shamt})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "mfhi" or op === "mflo" or op === "mthi" or op === "mtlo" do
-  #     {rd, string} =
-  #       case String.split(string, ~r{,}, parts: 2) do
-  #         [rd, string] ->
-  #           {rd, string}
-  #
-  #         [rd] ->
-  #           {rd, ""}
-  #
-  #         _ ->
-  #           IO.inspect("error")
-  #           {"", String.split(string, ~r{\n}, parts: 2) |> List.last()}
-  #       end
-  #
-  #     instruction = R.new(%{op: op, rd: rd})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, "jr") do
-  #     {rs, string} =
-  #       case String.split(string, ~r{,}, parts: 2) do
-  #         [rs, string] ->
-  #           {rs, string}
-  #
-  #         [rs] ->
-  #           {rs, ""}
-  #
-  #         _ ->
-  #           IO.inspect("error")
-  #           {"", String.split(string, ~r{\n}, parts: 2) |> List.last()}
-  #       end
-  #
-  #     instruction = R.new(%{op: "jr", rs: rs})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, "jalr") do
-  #     {rs, rd, string} =
-  #       case String.split(string, ~r{,}, parts: 3) do
-  #         [rs, rd, string] ->
-  #           {rs, rd, string}
-  #
-  #         [rs, rd] ->
-  #           {rs, rd, ""}
-  #       end
-  #
-  #     instruction = R.new(%{op: "jalr", rs: rs, rd: rd})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "addi" or op === "addiu" or op === "andi" or op === "ori" or op === "xori" or
-  #              op === "slti" or op === "sltiu" or
-  #              op === "beq" or op === "bne" do
-  #     {rt, rs, immd, string} =
-  #       case String.split(string, ~r{,}, parts: 4) do
-  #         [rt, rs, immd, string] ->
-  #           {rt, rs, immd, string}
-  #
-  #         [rt, rs, immd] ->
-  #           {rt, rs, immd, ""}
-  #       end
-  #
-  #     instruction = I.new(%{op: op, rt: rt, rs: rs, immd: immd})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op)
-  #       when op === "bgez" or op === "bgtz" or op === "blez" or op === "bltz" do
-  #     {rs, offset, string} =
-  #       case String.split(string, ~r{,}, parts: 3) do
-  #         [rs, offset, string] ->
-  #           {rs, offset, string}
-  #
-  #         [rs, offset] ->
-  #           {rs, offset, ""}
-  #       end
-  #
-  #     instruction = I.new(%{op: op, rs: rs, immd: offset})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op) when op === "lw" or op === "sw" do
-  #     {rs, rt, offset, string} =
-  #       case String.split(string, ~r{,}, parts: 2) do
-  #         [rt, string] ->
-  #           case Regex.named_captures(~r{(?<offset>\d*)\((?<rs>.*)\)(?<string>.*)}s, string) do
-  #             %{"offset" => offset, "rs" => rs, "string" => string} -> {rs, rt, offset, string}
-  #           end
-  #       end
-  #
-  #     # IO.inspect(string)
-  #     instruction = I.new(%{op: op, rs: rs, rt: rt, immd: offset})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   def parse_other(string, instructions, labels, op) when op === "j" or op === "jal" do
-  #     {address, string} =
-  #       case String.split(string, ~r{\n}, parts: 2) do
-  #         [address, string] -> {address, string}
-  #         [address] -> {address}
-  #       end
-  #
-  #     instruction = J.new(%{op: op, address: address})
-  #     parse_label(string, [instruction | instructions], labels)
-  #   end
-  #
-  #   defp update_labels(label, labels, address) do
-  #     if Map.has_key?(labels, label) do
-  #       %{labels | label => address}
-  #     else
-  #       IO.inspect("error")
-  #       labels
-  #     end
-  #   end
+  ## Example
+      iex> import MipsAssembler.Parser, only: [parse_colon: 1]
+      iex> parse_colon(%{string: ": foo"})
+      {:ok, %{string: " foo"}}
+      iex> parse_colon(%{string: "foo"})
+      {:error, %{string: "foo"}}
+  """
+  def parse_colon(state = %{string: ":" <> rest}), do: put_in(state, [:string], rest) |> ok()
+  def parse_colon(state), do: error(state)
+
+  @doc """
+  white space
+
+  ## Example
+      iex> import MipsAssembler.Parser, only: [skip_white_space: 1]
+      iex> skip_white_space(%{string: " \tfoo \t"})
+      {:ok, %{string: "foo \t"}}
+      iex> skip_white_space(%{string: "foo"})
+      {:ok, %{string: "foo"}}
+  """
+  def skip_white_space(state = %{string: <<char::bytes-size(1)>> <> rest})
+      when char === " " or char === "\t",
+      do: skip_white_space(%{state | string: rest})
+
+  def skip_white_space(state), do: ok(state)
 end
