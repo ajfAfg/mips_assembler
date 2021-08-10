@@ -36,20 +36,19 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_program: 1]
-      iex> program = "_start:\n    add\t$t0, $t1, $t2\nj    foo\nfoo:"
+      iex> program = "_start:\n    add\t$t0, $t1, $t2\nfoo:    j    foo"
       iex> state = %{
       ...>   string: program,
       ...>   statements: [],
       ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
       ...> }
       iex> parse_program(state)
+      [
+        {:ok, {3, %{label: "foo", operand: {"j", "foo"}}}},
+        {:ok, {2, %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}},
+        {:ok, {1, %{label: "_start", operand: {}}}}
+      ]
   """
-  # [
-  #   {:ok, {3, %{label: "foo", operand: {}}}},
-  #   {:ok, {2, %{label: "", operand: {"j", "foo"}}}},
-  #   {:ok, {1, %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}},
-  #   {:ok, {0, %{label: "_start", operand: {}}}}
-  # ]
   def parse_program(%{string: "", statements: statements}), do: statements
 
   def parse_program(state) do
@@ -103,15 +102,6 @@ defmodule MipsAssembler.Parser do
     |> ok()
     |> chain(&skip_white_space/1)
     |> chain(&parse_new_line_or_eof/1)
-
-    # state
-    # |> ok()
-    # |> chain(&skip_white_space/1)
-    # |> chain(&parse_new_line/1)
-    # |> case do
-    #   {:error, state} -> ok(state)
-    #   state -> ok(state)
-    # end
   end
 
   defp parse_new_line_or_eof(state) do
@@ -161,7 +151,6 @@ defmodule MipsAssembler.Parser do
            current: %{line_number: line_number}
          }
        ) do
-    # rest = String.trim_leading(string, "\n")
     rest = Regex.replace(~r{^.*\n}f, string, "")
     statement = error({line_number, @init_element})
     %{state | string: rest, statements: [statement | statements]}
@@ -254,24 +243,7 @@ defmodule MipsAssembler.Parser do
     |> ok()
     |> chain(&parse_identifier(&1, path: [:current, :element, :label]))
     |> chain(&parse_colon/1)
-
-    #     case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*:}f, string, include_captures: true) do
-    #       [label, rest] ->
-    #         #         element = %{element | label: label}
-    #         #
-    #         #         %{state | string: rest, current: %{current | element: element}} |> ok()
-    #         state
-    #         |> put_in([:current, :element, :label], label)
-    #         |> put_in([:string], rest)
-    #         |> ok()
-    #
-    #       list ->
-    #         IO.inspect(list)
-    #         error(state)
-    #     end
   end
-
-  # def parse_label(state), do: error(state)
 
   @doc ~S"""
   instruction
@@ -472,33 +444,8 @@ defmodule MipsAssembler.Parser do
   end
 
   defp parse_operand_four(state) do
-    parse_white_space_or_new_line_or_eof = fn state ->
-      #       parse_one = fn state ->
-      #         state
-      #         |> ok()
-      #         |> chain(&parse_white_space/1)
-      #
-      #         # |> chain(&skip_white_space/1)
-      #         # |> case do
-      #         #   {:ok, ^state} -> error(state)
-      #         #   ok = {:ok, _state} -> ok
-      #         # end
-      #       end
-      #
-      #       parse_two = fn state ->
-      #         state
-      #         |> ok()
-      #         |> chain(&parse_new_line/1)
-      #       end
-      #
-      #       parse_three = fn state ->
-      #         state
-      #         |> ok()
-      #         |> chain(&parse_eof/1)
-      #       end
-
-      # case {parse_one.(state), parse_two.(state), parse_three.(state)} do
-      case {parse_white_space(state), parse_new_line(state), parse_eof(state)} do
+    parse_white_space_or_new_line_or_word_end = fn state ->
+      case {parse_white_space(state), parse_new_line(state), parse_word_end(state)} do
         {ok = {:ok, _state}, _, _} -> ok
         {_, ok = {:ok, _state}, _} -> ok
         {_, _, ok = {:ok, _state}} -> ok
@@ -509,7 +456,7 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&parse_identifier(&1, path: [:current, :element, :operand]))
-    |> chain(parse_white_space_or_new_line_or_eof)
+    |> chain(parse_white_space_or_new_line_or_word_end)
   end
 
   @doc """
@@ -626,10 +573,12 @@ defmodule MipsAssembler.Parser do
       iex> parse_new_line(%{state | string: "foo"})
       {:error, %{string: "foo", current: %{line_number: 0}}}
   """
-  def parse_new_line(
-        state = %{string: "\n" <> rest, current: current = %{line_number: line_number}}
-      ),
-      do: %{state | string: rest, current: %{current | line_number: line_number + 1}} |> ok()
+  def parse_new_line(state = %{string: "\n" <> rest, current: %{line_number: line_number}}) do
+    state
+    |> put_in([:current, :line_number], line_number + 1)
+    |> put_in([:string], rest)
+    |> ok()
+  end
 
   def parse_new_line(state), do: error(state)
 
@@ -638,12 +587,18 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_eof: 1]
-      iex> parse_eof(%{string: ""})
-      {:ok, %{string: ""}}
+      iex> parse_eof(%{string: "", current: %{line_number: 0}})
+      {:ok, %{string: "", current: %{line_number: 1}}}
       iex> parse_eof(%{string: "foo"})
       {:error, %{string: "foo"}}
   """
-  def parse_eof(state = %{string: ""}), do: ok(state)
+  def parse_eof(state = %{string: "", current: %{line_number: line_number}}) do
+    state
+    |> put_in([:current, :line_number], line_number + 1)
+    |> ok()
+  end
+
+  # def parse_eof(state = %{string: ""}), do: ok(state)
   def parse_eof(state), do: error(state)
 
   @doc ~S"""
@@ -754,6 +709,9 @@ defmodule MipsAssembler.Parser do
   """
   def parse_colon(state = %{string: ":" <> rest}), do: put_in(state, [:string], rest) |> ok()
   def parse_colon(state), do: error(state)
+
+  def parse_word_end(state = %{string: ""}), do: ok(state)
+  def parse_word_end(state), do: error(state)
 
   @doc """
   white space
