@@ -2,11 +2,18 @@ defmodule CliTest do
   use ExUnit.Case
   doctest MipsAssembler
 
-  import MipsAssembler.CLI, only: [parse_args: 1]
+  import MipsAssembler.CLI, only: [parse_args: 1, process: 1]
 
   test ":help returned by option parsing with -h and --help options" do
     assert parse_args(["-h", "anything"]) == :help
     assert parse_args(["--help", "anything"]) == :help
+  end
+
+  test "assemble" do
+    process("test/test_program/foo.s")
+
+    assert File.read!("test/test_program/foo.txt") ===
+             "00000001001010100100000000100000\n00001000000000000000000000000001"
   end
 
   #   test "three values returned if three given" do

@@ -1,4 +1,7 @@
 defmodule MipsAssembler.CLI do
+  @input_extention ".s"
+  @output_extention ".txt"
+
   @moduledoc """
   Handle the command line parsing and the dispatch to
   the various functions that end up generating a
@@ -35,9 +38,17 @@ defmodule MipsAssembler.CLI do
 
   def process(file_name) do
     file_name
-    |> File.read()
+    |> File.read!()
     |> parse_assembly()
     |> convert_into_intermediate_representation()
+    |> generate_binary_code()
+    |> Kernel.then(fn binary ->
+      output =
+        Path.dirname(file_name) <>
+          "/" <> Path.basename(file_name, @input_extention) <> @output_extention
+
+      File.write(output, binary)
+    end)
 
     # Issues.GithubIssues.fetch(user, project)
     # |> decode_response()
@@ -92,6 +103,18 @@ defmodule MipsAssembler.CLI do
       instructions
     else
       IO.puts("Fatal Error")
+    end
+  end
+
+  def generate_binary_code({labels, instructions}) do
+    MipsAssembler.Generator.generate_binary(instructions, labels)
+    |> case do
+      :error ->
+        IO.puts("Fatal Error")
+        System.halt(1)
+
+      binary ->
+        binary
     end
   end
 end
