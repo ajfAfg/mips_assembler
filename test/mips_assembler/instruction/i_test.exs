@@ -17,7 +17,7 @@ defmodule ITest do
         bgez: %{op: "bgez", rs: "$t0", immd: "foo"},
         bgez_expected: %I{
           op: "bgez",
-          rt: "",
+          rt: nil,
           rs: "$t0",
           immd: "foo"
         },

@@ -1,5 +1,5 @@
 defmodule MipsAssembler.Instruction.J do
-  defstruct op: "", address: ""
+  defstruct op: nil, address: nil
 
   import MipsAssembler.Instruction.Helper, only: [get: 2]
 

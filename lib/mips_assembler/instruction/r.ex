@@ -1,5 +1,5 @@
 defmodule MipsAssembler.Instruction.R do
-  defstruct op: "", rd: "", rs: "", rt: "", shamt: ""
+  defstruct op: nil, rd: nil, rs: nil, rt: nil, shamt: nil
 
   import MipsAssembler.Instruction.Helper, only: [get: 2]
 
@@ -14,7 +14,7 @@ defmodule MipsAssembler.Instruction.R do
         rd: "$t0",
         rs: "$zero",
         rt: "$t1",
-        shamt: ""
+        shamt: nil
       }
   """
   def new(%{op: _} = base) do

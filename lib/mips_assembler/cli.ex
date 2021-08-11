@@ -37,6 +37,7 @@ defmodule MipsAssembler.CLI do
     file_name
     |> File.read()
     |> parse_assembly()
+    |> convert_into_intermediate_representation()
 
     # Issues.GithubIssues.fetch(user, project)
     # |> decode_response()
@@ -48,10 +49,10 @@ defmodule MipsAssembler.CLI do
   def parse_assembly(string) do
     string
     |> MipsAssembler.Parser.parse()
-    |> check_no_error()
+    |> check_no_error_for_statements()
   end
 
-  defp check_no_error(statements) do
+  defp check_no_error_for_statements(statements) do
     if Enum.all?(statements, fn {ok, _} -> ok === :ok end) do
       statements
     else
@@ -62,6 +63,35 @@ defmodule MipsAssembler.CLI do
       end)
 
       System.halt(1)
+    end
+  end
+
+  def convert_into_intermediate_representation(statements) do
+    statements
+    |> MipsAssembler.Converter.convert()
+    |> Kernel.then(fn {labels, instructions} ->
+      {check_no_error_for_labels(labels), check_no_error_for_instructions(instructions)}
+    end)
+  end
+
+  defp check_no_error_for_labels(labels) do
+    labels
+    |> Enum.to_list()
+    |> Enum.filter(fn {_k, v} -> v === :error end)
+    |> case do
+      [] ->
+        labels
+
+      list ->
+        Enum.each(list, fn {label, _v} -> IO.puts("Error: Duplicate the label #{label}.") end)
+    end
+  end
+
+  defp check_no_error_for_instructions(instructions) do
+    if Enum.all?(instructions, &(&1 !== :error)) do
+      instructions
+    else
+      IO.puts("Fatal Error")
     end
   end
 end

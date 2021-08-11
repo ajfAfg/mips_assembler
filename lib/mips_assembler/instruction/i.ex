@@ -1,5 +1,5 @@
 defmodule MipsAssembler.Instruction.I do
-  defstruct op: "", rs: "", rt: "", immd: ""
+  defstruct op: nil, rs: nil, rt: nil, immd: nil
 
   import MipsAssembler.Instruction.Helper, only: [get: 2]
 

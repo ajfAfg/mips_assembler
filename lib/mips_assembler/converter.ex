@@ -1,7 +1,7 @@
 defmodule MipsAssembler.Converter do
-  @r %{op: "", rd: "", rs: "", rt: "", shamt: ""}
-  @i %{op: "", rs: "", rt: "", immd: ""}
-  @j %{op: "", address: ""}
+  @r %{op: nil, rd: nil, rs: nil, rt: nil, shamt: nil}
+  @i %{op: nil, rs: nil, rt: nil, immd: nil}
+  @j %{op: nil, address: nil}
 
   @moduledoc """
   converter
@@ -25,7 +25,7 @@ defmodule MipsAssembler.Converter do
       {
         %{"_start" => 0, "foo" => 1},
         [
-          %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: ""},
+          %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: nil},
           %MipsAssembler.Instruction.J{op: "j", address: "foo"}
         ]
       }
@@ -98,13 +98,12 @@ defmodule MipsAssembler.Converter do
 
   ## Example
       iex> import MipsAssembler.Converter, only: [convert_instruction: 1]
-      iex> convert_instruction({"add", "$t0", "$t1", "$t2"})
-      %MipsAssembler.Instruction.R{
-        op: "add",
-        rd: "$t0",
+      iex> convert_instruction({"addi", "$t0", "$t1", "-1"})
+      %MipsAssembler.Instruction.I{
+        op: "addi",
         rs: "$t1",
-        rt: "$t2",
-        shamt: ""
+        rt: "$t0",
+        immd: -1
       }
   """
   def convert_instruction({op, rd, rs, rt})
@@ -114,7 +113,7 @@ defmodule MipsAssembler.Converter do
 
   def convert_instruction({op, rd, rt, shamt})
       when op === "sll" or op === "srl" or op === "sra",
-      do: R.new(%{@r | op: op, rd: rd, rt: rt, shamt: shamt})
+      do: R.new(%{@r | op: op, rd: rd, rt: rt, shamt: to_integer_if_needed(shamt)})
 
   def convert_instruction({op, rd, rt, rs}) when op === "sllv" or op === "srlv",
     do: R.new(%{@r | op: op, rd: rd, rs: rs, rt: rt})
@@ -134,30 +133,26 @@ defmodule MipsAssembler.Converter do
   def convert_instruction({op, rt, rs, immd})
       when op === "addi" or op === "addiu" or op === "andi" or op === "ori" or op === "xori" or
              op === "slti" or op === "sltiu",
-      do: I.new(%{@i | op: op, rt: rt, rs: rs, immd: immd})
+      do: I.new(%{@i | op: op, rt: rt, rs: rs, immd: to_integer_if_needed(immd)})
 
   def convert_instruction({op, rs, rt, immd}) when op === "beq" or op === "bne",
-    do: I.new(%{@i | op: op, rs: rs, rt: rt, immd: immd})
+    do: I.new(%{@i | op: op, rs: rs, rt: rt, immd: to_integer_if_needed(immd)})
 
   def convert_instruction({op, rt, immd, rs}) when op === "lw" or op === "sw",
-    do: I.new(%{@i | op: op, rt: rt, immd: immd, rs: rs})
+    do: I.new(%{@i | op: op, rt: rt, immd: to_integer_if_needed(immd), rs: rs})
 
   def convert_instruction({op, address}) when op === "j" or op === "jal",
-    do: J.new(%{@j | op: op, address: address})
+    do: J.new(%{@j | op: op, address: to_integer_if_needed(address)})
 
   def convert_instruction(_), do: :error
 
-  #   def divide_label_and_instruction(elements) do
-  #     labels =
-  #       elements
-  #       |> Enum.map(fn %{label: label} -> label end)
-  #       |> Enum.map(fn label -> label !== "" end)
-  #
-  #     operands =
-  #       elements
-  #       |> Enum.map(fn %{operand: operand} -> operand end)
-  #       |> Enum.filter(fn operand -> operand !== {} end)
-  #
-  #     {labels, operands}
-  #   end
+  defp to_integer_if_needed(string_number) do
+    try do
+      string_number
+      |> String.replace(" ", "")
+      |> String.to_integer()
+    rescue
+      _ -> string_number
+    end
+  end
 end

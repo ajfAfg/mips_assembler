@@ -13,21 +13,21 @@ defmodule RTest do
           rd: "$t0",
           rs: "$zero",
           rt: "$t1",
-          shamt: ""
+          shamt: nil
         },
         mult: %{op: "mult", rt: "$t0", rs: "$t1"},
         mult_expected: %R{
           op: "mult",
-          rd: "",
+          rd: nil,
           rs: "$t1",
           rt: "$t0",
-          shamt: ""
+          shamt: nil
         },
         sll: %{op: "sll", rd: "$t0", rt: "$t1", shamt: "4"},
         sll_expected: %R{
           op: "sll",
           rd: "$t0",
-          rs: "",
+          rs: nil,
           rt: "$t1",
           shamt: "4"
         },
@@ -35,25 +35,25 @@ defmodule RTest do
         mfhi_expected: %R{
           op: "mfhi",
           rd: "$t0",
-          rs: "",
-          rt: "",
-          shamt: ""
+          rs: nil,
+          rt: nil,
+          shamt: nil
         },
         jr: %{op: "jr", rs: "$t0"},
         jr_expected: %R{
           op: "jr",
-          rd: "",
+          rd: nil,
           rs: "$t0",
-          rt: "",
-          shamt: ""
+          rt: nil,
+          shamt: nil
         },
         jalr: %{op: "jalr", rs: "$t0", rd: "$t1"},
         jalr_expected: %R{
           op: "jalr",
           rd: "$t1",
           rs: "$t0",
-          rt: "",
-          shamt: ""
+          rt: nil,
+          shamt: nil
         }
       ]
     end
