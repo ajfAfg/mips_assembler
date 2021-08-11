@@ -1,5 +1,5 @@
 defmodule MipsAssembler.Parser do
-  @init_element %{label: "", operand: {}}
+  @init_element %{label: "", instruction: {}}
 
   @moduledoc """
   ok
@@ -11,6 +11,7 @@ defmodule MipsAssembler.Parser do
     string
     |> init()
     |> parse_program()
+    |> Enum.reverse()
   end
 
   def init(string) do
@@ -40,13 +41,13 @@ defmodule MipsAssembler.Parser do
       iex> state = %{
       ...>   string: program,
       ...>   statements: [],
-      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...>   current: %{line_number: 0, element: %{label: "", instruction: {}}}
       ...> }
       iex> parse_program(state)
       [
-        {:ok, {3, %{label: "foo", operand: {"j", "foo"}}}},
-        {:ok, {2, %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}},
-        {:ok, {1, %{label: "_start", operand: {}}}}
+        {:ok, {3, %{label: "foo", instruction: {"j", "foo"}}}},
+        {:ok, {2, %{label: "", instruction: {"add", "$t0", "$t1", "$t2"}}}},
+        {:ok, {1, %{label: "_start", instruction: {}}}}
       ]
   """
   def parse_program(%{string: "", statements: statements}), do: statements
@@ -65,19 +66,19 @@ defmodule MipsAssembler.Parser do
       iex> import MipsAssembler.Parser, only: [parse_stmt: 1]
       iex> state = %{
       ...>   string: "\t foo: add $t0, $t1, $t2\t \n",
-      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...>   current: %{line_number: 0, element: %{label: "", instruction: {}}}
       ...> }
       iex> parse_stmt(state)
       {
         :ok,
         %{
           string: "",
-          current: %{line_number: 1, element: %{label: "foo", operand: {"add", "$t0", "$t1", "$t2"}}}
+          current: %{line_number: 1, element: %{label: "foo", instruction: {"add", "$t0", "$t1", "$t2"}}}
         }
       }
-      iex> state = %{string: "\t \t\n", current: %{line_number: 0, element: %{label: "", operand: {}}}}
+      iex> state = %{string: "\t \t\n", current: %{line_number: 0, element: %{label: "", instruction: {}}}}
       iex> parse_stmt(state)
-      {:ok, %{string: "", current: %{line_number: 1, element: %{label: "", operand: {}}}}}
+      {:ok, %{string: "", current: %{line_number: 1, element: %{label: "", instruction: {}}}}}
   """
 
   def parse_stmt(state) do
@@ -163,38 +164,38 @@ defmodule MipsAssembler.Parser do
       iex> import MipsAssembler.Parser, only: [parse_stat: 1]
       iex> state = %{
       ...>   string: "foo: add $t0, $t1, $t2",
-      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...>   current: %{line_number: 0, element: %{label: "", instruction: {}}}
       ...> }
       iex> parse_stat(state)
       {
         :ok,
         %{
           string: "",
-          current: %{line_number: 0, element: %{label: "foo", operand: {"add", "$t0", "$t1", "$t2"}}}
+          current: %{line_number: 0, element: %{label: "foo", instruction: {"add", "$t0", "$t1", "$t2"}}}
         }
       }
       iex> state = %{
       ...>   string: "foo:",
-      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...>   current: %{line_number: 0, element: %{label: "", instruction: {}}}
       ...> }
       iex> parse_stat(state)
       {
         :ok,
         %{
           string: "",
-          current: %{line_number: 0, element: %{label: "foo", operand: {}}}
+          current: %{line_number: 0, element: %{label: "foo", instruction: {}}}
         }
       }
       iex> state = %{
       ...>   string: "add $t0, $t1, $t2",
-      ...>   current: %{line_number: 0, element: %{label: "", operand: {}}}
+      ...>   current: %{line_number: 0, element: %{label: "", instruction: {}}}
       ...> }
       iex> parse_stat(state)
       {
         :ok,
         %{
           string: "",
-          current: %{line_number: 0, element: %{label: "", operand: {"add", "$t0", "$t1", "$t2"}}}
+          current: %{line_number: 0, element: %{label: "", instruction: {"add", "$t0", "$t1", "$t2"}}}
         }
       }
   """
@@ -232,10 +233,10 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_label: 1]
-      iex> parse_label(%{string: "_foo:", current: %{element: %{operand: {}}}})
-      {:ok, %{string: "", current: %{element: %{label: "_foo", operand: {}}}}}
-      iex> parse_label(%{string: "_foo", current: %{element: %{operand: {}}}})
-      {:error, %{string: "", current: %{element: %{label: "_foo", operand: {}}}}}
+      iex> parse_label(%{string: "_foo:", current: %{element: %{instruction: {}}}})
+      {:ok, %{string: "", current: %{element: %{label: "_foo", instruction: {}}}}}
+      iex> parse_label(%{string: "_foo", current: %{element: %{instruction: {}}}})
+      {:error, %{string: "", current: %{element: %{label: "_foo", instruction: {}}}}}
   """
   # def parse_label(state = %{string: string, current: current = %{element: element}}) do
   def parse_label(state) do
@@ -250,15 +251,15 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_instruction: 1]
-      iex> state = %{string: "add $t0, $t1, $t2", current: %{line_number: 0, element: %{operand: {}}}}
+      iex> state = %{string: "add $t0, $t1, $t2", current: %{line_number: 0, element: %{instruction: {}}}}
       iex> parse_instruction(state)
-      {:ok, %{string: "", current: %{line_number: 0, element: %{operand: {"add", "$t0", "$t1", "$t2"}}}}}
+      {:ok, %{string: "", current: %{line_number: 0, element: %{instruction: {"add", "$t0", "$t1", "$t2"}}}}}
       iex> parse_instruction(%{state | string: "mult $t0, $t1"})
-      {:ok, %{string: "", current: %{line_number: 0, element: %{operand: {"mult", "$t0", "$t1"}}}}}
+      {:ok, %{string: "", current: %{line_number: 0, element: %{instruction: {"mult", "$t0", "$t1"}}}}}
       iex> parse_instruction(%{state | string: "j foo\nhoge"})
-      {:ok, %{string: "hoge", current: %{line_number: 1, element: %{operand: {"j", "foo"}}}}}
+      {:ok, %{string: "hoge", current: %{line_number: 1, element: %{instruction: {"j", "foo"}}}}}
       iex> parse_instruction(%{state | string: "add$t0,$t1,$t2"})
-      {:error, %{string: "$t0,$t1,$t2", current: %{line_number: 0, element: %{operand: {"add"}}}}}
+      {:error, %{string: "$t0,$t1,$t2", current: %{line_number: 0, element: %{instruction: {"add"}}}}}
   """
   def parse_instruction(state) do
     parse_optional = fn state ->
@@ -297,16 +298,16 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_op_code: 1]
-      iex> state = %{string: "add $t0, $t1, $t2", current: %{element: %{operand: {}}}}
+      iex> state = %{string: "add $t0, $t1, $t2", current: %{element: %{instruction: {}}}}
       iex> parse_op_code(state)
-      {:ok, %{string: " $t0, $t1, $t2", current: %{element: %{operand: {"add"}}}}}
+      {:ok, %{string: " $t0, $t1, $t2", current: %{element: %{instruction: {"add"}}}}}
       iex> parse_op_code(%{state | string: "aff $t0, $t1, $t2"})
-      {:error, %{string: "aff $t0, $t1, $t2", current: %{element: %{operand: {}}}}}
+      {:error, %{string: "aff $t0, $t1, $t2", current: %{element: %{instruction: {}}}}}
   """
   def parse_op_code(
         state = %{
           string: string,
-          current: %{element: %{operand: operand}}
+          current: %{element: %{instruction: instruction}}
         }
       ) do
     case _parse_op_code(string) do
@@ -314,10 +315,10 @@ defmodule MipsAssembler.Parser do
         error(state)
 
       {op_code, rest} ->
-        operand = Tuple.append(operand, op_code)
+        instruction = Tuple.append(instruction, op_code)
 
         state
-        |> put_in([:current, :element, :operand], operand)
+        |> put_in([:current, :element, :instruction], instruction)
         |> put_in([:string], rest)
         |> ok()
     end
@@ -375,17 +376,17 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_operand: 1]
-      iex> state = %{string: "$t0", current: %{element: %{operand: {"lw"}}}}
+      iex> state = %{string: "$t0", current: %{element: %{instruction: {"lw"}}}}
       iex> parse_operand(state)
-      {:ok, %{string: "", current: %{element: %{operand: {"lw", "$t0"}}}}}
+      {:ok, %{string: "", current: %{element: %{instruction: {"lw", "$t0"}}}}}
       iex> parse_operand(%{state | string: "($t0)"})
-      {:ok, %{string: "", current: %{element: %{operand: {"lw", "$t0"}}}}}
+      {:ok, %{string: "", current: %{element: %{instruction: {"lw", "$t0"}}}}}
       iex> parse_operand(%{state | string: "-4($t0)"})
-      {:ok, %{string: "", current: %{element: %{operand: {"lw", "-4", "$t0"}}}}}
-      iex> parse_operand(%{string: "foo\nbaz", current: %{line_number: 0, element: %{operand: {"j"}}}})
-      {:ok, %{string: "baz", current: %{line_number: 1, element: %{operand: {"j", "foo"}}}}}
+      {:ok, %{string: "", current: %{element: %{instruction: {"lw", "-4", "$t0"}}}}}
+      iex> parse_operand(%{string: "foo\nbaz", current: %{line_number: 0, element: %{instruction: {"j"}}}})
+      {:ok, %{string: "baz", current: %{line_number: 1, element: %{instruction: {"j", "foo"}}}}}
       iex> parse_operand(%{state | string: "foo($t0)"})
-      {:error, %{string: "foo($t0)", current: %{element: %{operand: {"lw"}}}}}
+      {:error, %{string: "foo($t0)", current: %{element: %{instruction: {"lw"}}}}}
   """
   def parse_operand(state) do
     case {parse_operand_one(state), parse_operand_two(state), parse_operand_three(state),
@@ -455,7 +456,7 @@ defmodule MipsAssembler.Parser do
 
     state
     |> ok()
-    |> chain(&parse_identifier(&1, path: [:current, :element, :operand]))
+    |> chain(&parse_identifier(&1, path: [:current, :element, :instruction]))
     |> chain(parse_white_space_or_new_line_or_word_end)
   end
 
@@ -464,20 +465,20 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_register: 1]
-      iex> state = %{string: "$t0, $t1, $t2", current: %{element: %{operand: {"add"}}}}
+      iex> state = %{string: "$t0, $t1, $t2", current: %{element: %{instruction: {"add"}}}}
       iex> parse_register(state)
-      {:ok, %{string: ", $t1, $t2", current: %{element: %{operand: {"add", "$t0"}}}}}
+      {:ok, %{string: ", $t1, $t2", current: %{element: %{instruction: {"add", "$t0"}}}}}
       iex> parse_register(%{state | string: "foo"})
-      {:error, %{string: "foo", current: %{element: %{operand: {"add"}}}}}
+      {:error, %{string: "foo", current: %{element: %{instruction: {"add"}}}}}
   """
-  def parse_register(state = %{string: string, current: %{element: %{operand: operand}}}) do
+  def parse_register(state = %{string: string, current: %{element: %{instruction: instruction}}}) do
     case _parse_register(string) do
       {"", ^string} ->
         error(state)
 
       {register, rest} ->
         state
-        |> put_in([:current, :element, :operand], Tuple.append(operand, register))
+        |> put_in([:current, :element, :instruction], Tuple.append(instruction, register))
         |> put_in([:string], rest)
         |> ok()
     end
@@ -525,17 +526,17 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_addr_immd: 1]
-      iex> state = %{string: "-4($t0)", current: %{element: %{operand: {"lw"}}}}
+      iex> state = %{string: "-4($t0)", current: %{element: %{instruction: {"lw"}}}}
       iex> parse_addr_immd(state)
-      {:ok, %{string: "($t0)", current: %{element: %{operand: {"lw", "-4"}}}}}
+      {:ok, %{string: "($t0)", current: %{element: %{instruction: {"lw", "-4"}}}}}
       iex> parse_addr_immd(%{state | string: "foo"})
-      {:error, %{string: "foo", current: %{element: %{operand: {"lw"}}}}}
+      {:error, %{string: "foo", current: %{element: %{instruction: {"lw"}}}}}
   """
-  def parse_addr_immd(state = %{string: string, current: %{element: %{operand: operand}}}) do
+  def parse_addr_immd(state = %{string: string, current: %{element: %{instruction: instruction}}}) do
     case Regex.split(~r{^(\+|\-)?[[:blank:]]*\d+}f, string, trim: true, include_captures: true) do
       [addr_immd, rest] ->
         state
-        |> put_in([:current, :element, :operand], Tuple.append(operand, addr_immd))
+        |> put_in([:current, :element, :instruction], Tuple.append(instruction, addr_immd))
         |> put_in([:string], rest)
         |> ok()
 
@@ -606,18 +607,18 @@ defmodule MipsAssembler.Parser do
 
   ## Example
       iex> import MipsAssembler.Parser, only: [parse_identifier: 2]
-      iex> state = %{string: "foo", current: %{element: %{label: "", operand: {"j"}}}}
-      iex> parse_identifier(state, path: [:current, :element, :operand])
-      {:ok, %{string: "", current: %{element: %{label: "", operand: {"j", "foo"}}}}}
-      iex> state = %{string: "_foo:", current: %{element: %{label: "", operand: {}}}}
+      iex> state = %{string: "foo", current: %{element: %{label: "", instruction: {"j"}}}}
+      iex> parse_identifier(state, path: [:current, :element, :instruction])
+      {:ok, %{string: "", current: %{element: %{label: "", instruction: {"j", "foo"}}}}}
+      iex> state = %{string: "_foo:", current: %{element: %{label: "", instruction: {}}}}
       iex> parse_identifier(state, path: [:current, :element, :label])
-      {:ok, %{string: ":", current: %{element: %{label: "_foo", operand: {}}}}}
-      iex> state = %{string: "foo\nbar", current: %{element: %{label: "", operand: {"j"}}}}
-      iex> parse_identifier(state, path: [:current, :element, :operand])
-      {:ok, %{string: "\nbar", current: %{element: %{label: "", operand: {"j", "foo"}}}}}
+      {:ok, %{string: ":", current: %{element: %{label: "_foo", instruction: {}}}}}
+      iex> state = %{string: "foo\nbar", current: %{element: %{label: "", instruction: {"j"}}}}
+      iex> parse_identifier(state, path: [:current, :element, :instruction])
+      {:ok, %{string: "\nbar", current: %{element: %{label: "", instruction: {"j", "foo"}}}}}
   """
   def parse_identifier(
-        state = %{string: string, current: %{element: %{operand: operand}}},
+        state = %{string: string, current: %{element: %{instruction: instruction}}},
         path: path
       ) do
     # case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*}f, string,
@@ -637,8 +638,8 @@ defmodule MipsAssembler.Parser do
       {label, rest} ->
         put_in_selectively = fn state ->
           case path do
-            [:current, :element, :operand] ->
-              put_in(state, path, Tuple.append(operand, label))
+            [:current, :element, :instruction] ->
+              put_in(state, path, Tuple.append(instruction, label))
 
             [:current, :element, :label] ->
               put_in(state, path, label)

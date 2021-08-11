@@ -19,15 +19,15 @@ defmodule MipsAssembler.CLI do
   def parse_args(argv) do
     OptionParser.parse(argv, switches: [help: :boolean], aliases: [h: :help])
     |> _parse_args()
-
-    # |> IO.inspect()
-    # |> elem(1)
-    # |> args_to_internal_representation()
   end
+
+  defp _parse_args({[help: true], _, _}), do: :help
+  defp _parse_args({_, [file_name], _}), do: file_name
+  defp _parse_args(_), do: :help
 
   def process(:help) do
     IO.puts("""
-      usage: issues <file name>
+      usage: mips_assembler <file name>
     """)
 
     System.halt(0)
@@ -36,6 +36,7 @@ defmodule MipsAssembler.CLI do
   def process(file_name) do
     file_name
     |> File.read()
+    |> parse_assembly()
 
     # Issues.GithubIssues.fetch(user, project)
     # |> decode_response()
@@ -44,15 +45,23 @@ defmodule MipsAssembler.CLI do
     # |> print_table_for_columns(["number", "created_at", "title"])
   end
 
-  def _parse_args({[help: true], _, _}), do: :help
-  def _parse_args({_, [file_name], _}), do: file_name
-  def _parse_args(_), do: :help
-  #   def args_to_internal_representation([file_name]) do
-  #     file_name
-  #   end
-  #
-  #   # 不正な引数または--helpの場合
-  #   def args_to_internal_representation(_) do
-  #     :help
-  #   end
+  def parse_assembly(string) do
+    string
+    |> MipsAssembler.Parser.parse()
+    |> check_no_error()
+  end
+
+  defp check_no_error(statements) do
+    if Enum.all?(statements, fn {ok, _} -> ok === :ok end) do
+      statements
+    else
+      statements
+      |> Enum.filter(fn {error, _} -> error === :error end)
+      |> Enum.each(fn {_error, {line_number, _element}} ->
+        IO.puts("Syntax Error (#{line_number})")
+      end)
+
+      System.halt(1)
+    end
+  end
 end
