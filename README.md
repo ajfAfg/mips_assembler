@@ -1,5 +1,7 @@
 # MipsAssembler
 
+This repository implements a very small subset of the MIPS assembler with pure Elixir.
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
