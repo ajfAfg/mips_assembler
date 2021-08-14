@@ -10,7 +10,6 @@ defmodule MipsAssembler.Parser do
   def parse(string) do
     string
     |> init()
-    # |> IO.inspect()
     |> parse_program()
     |> Enum.reverse()
   end
@@ -95,6 +94,7 @@ defmodule MipsAssembler.Parser do
     |> ok()
     |> chain(&skip_white_space/1)
     |> chain(&parse_stat/1)
+    # |> IO.inspect()
     |> chain(&skip_white_space/1)
     |> chain(&parse_new_line_or_eof/1)
   end
@@ -103,7 +103,6 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&skip_white_space/1)
-    # |> IO.inspect()
     |> chain(&parse_new_line_or_eof/1)
   end
 
@@ -143,8 +142,8 @@ defmodule MipsAssembler.Parser do
 
   defp next_stmt({:error, state}) do
     state
-    |> skip_current_statement()
     # |> IO.inspect()
+    |> skip_current_statement()
     |> put_in([:current, :element], @init_element)
   end
 
@@ -156,8 +155,15 @@ defmodule MipsAssembler.Parser do
          }
        ) do
     rest = Regex.replace(~r{^.*\n}f, string, "")
-    statement = error({line_number, element})
-    %{state | string: rest, statements: [statement | statements]}
+    # rest = String.replace(string, ~r{^.*}f, "")
+    statement = error({line_number + 1, element})
+
+    state
+    |> put_in([:string], rest)
+    |> put_in([:statements], [statement | statements])
+    |> put_in([:current, :line_number], line_number + 1)
+
+    # %{state | string: rest, statements: [statement | statements]}
   end
 
   @doc """
@@ -229,6 +235,8 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&parse_instruction/1)
+
+    # |> IO.inspect()
   end
 
   @doc """
@@ -281,9 +289,7 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&parse_op_code/1)
-    # |> chain(&parse_white_space/1)
     |> chain(&skip_white_space/1)
-    # |> IO.inspect()
     |> chain(&parse_operand/1)
     |> case do
       err = {:error, _state} ->
@@ -326,67 +332,9 @@ defmodule MipsAssembler.Parser do
       _ ->
         error(state)
     end
-
-    #     case _parse_op_code(string) do
-    #       {"", ^string} ->
-    #         error(state)
-    #
-    #       {op_code, rest} ->
-    #         instruction = Tuple.append(instruction, op_code)
-    #
-    #         state
-    #         |> put_in([:current, :element, :instruction], instruction)
-    #         |> put_in([:string], rest)
-    #         |> ok()
-    #     end
   end
 
   def parse_op_code(state), do: error(state)
-
-  defp _parse_op_code("add" <> rest), do: {"add", rest}
-  defp _parse_op_code("sub" <> rest), do: {"sub", rest}
-  defp _parse_op_code("mult" <> rest), do: {"mult", rest}
-  defp _parse_op_code("div" <> rest), do: {"div", rest}
-  defp _parse_op_code("addi" <> rest), do: {"addi", rest}
-  defp _parse_op_code("addu" <> rest), do: {"addu", rest}
-  defp _parse_op_code("subu" <> rest), do: {"subu", rest}
-  defp _parse_op_code("multu" <> rest), do: {"multu", rest}
-  defp _parse_op_code("divu" <> rest), do: {"divu", rest}
-  defp _parse_op_code("addiu" <> rest), do: {"addiu", rest}
-  defp _parse_op_code("and" <> rest), do: {"and", rest}
-  defp _parse_op_code("or" <> rest), do: {"or", rest}
-  defp _parse_op_code("nor" <> rest), do: {"nor", rest}
-  defp _parse_op_code("xor" <> rest), do: {"xor", rest}
-  defp _parse_op_code("andi" <> rest), do: {"andi", rest}
-  defp _parse_op_code("ori" <> rest), do: {"ori", rest}
-  defp _parse_op_code("xori" <> rest), do: {"xori", rest}
-  defp _parse_op_code("sll" <> rest), do: {"sll", rest}
-  defp _parse_op_code("srl" <> rest), do: {"srl", rest}
-  defp _parse_op_code("sllv" <> rest), do: {"sllv", rest}
-  defp _parse_op_code("srlv" <> rest), do: {"srlv", rest}
-  defp _parse_op_code("sra" <> rest), do: {"sra", rest}
-  defp _parse_op_code("srav" <> rest), do: {"srav", rest}
-  defp _parse_op_code("lw" <> rest), do: {"lw", rest}
-  defp _parse_op_code("sw" <> rest), do: {"sw", rest}
-  defp _parse_op_code("mfhi" <> rest), do: {"mfhi", rest}
-  defp _parse_op_code("mflo" <> rest), do: {"mflo", rest}
-  defp _parse_op_code("mthi" <> rest), do: {"mthi", rest}
-  defp _parse_op_code("mtlo" <> rest), do: {"mtlo", rest}
-  defp _parse_op_code("slt" <> rest), do: {"slt", rest}
-  defp _parse_op_code("sltu" <> rest), do: {"sltu", rest}
-  defp _parse_op_code("slti" <> rest), do: {"slti", rest}
-  defp _parse_op_code("sltiu" <> rest), do: {"sltiu", rest}
-  defp _parse_op_code("beq" <> rest), do: {"beq", rest}
-  defp _parse_op_code("bne" <> rest), do: {"bne", rest}
-  defp _parse_op_code("bgez" <> rest), do: {"bgez", rest}
-  defp _parse_op_code("bgtz" <> rest), do: {"bgtz", rest}
-  defp _parse_op_code("blez" <> rest), do: {"blez", rest}
-  defp _parse_op_code("bltz" <> rest), do: {"bltz", rest}
-  defp _parse_op_code("j" <> rest), do: {"j", rest}
-  defp _parse_op_code("jal" <> rest), do: {"jal", rest}
-  defp _parse_op_code("jr" <> rest), do: {"jr", rest}
-  defp _parse_op_code("jalr" <> rest), do: {"jalr", rest}
-  defp _parse_op_code(string), do: {"", string}
 
   @doc ~S"""
   operand
@@ -462,19 +410,20 @@ defmodule MipsAssembler.Parser do
   end
 
   defp parse_operand_four(state) do
-    parse_white_space_or_new_line_or_word_end = fn state ->
-      case {parse_white_space(state), parse_new_line(state), parse_word_end(state)} do
-        {ok = {:ok, _state}, _, _} -> ok
-        {_, ok = {:ok, _state}, _} -> ok
-        {_, _, ok = {:ok, _state}} -> ok
-        _ -> error(state)
-      end
-    end
-
-    state
-    |> ok()
-    |> chain(&parse_identifier(&1, path: [:current, :element, :instruction]))
-    |> chain(parse_white_space_or_new_line_or_word_end)
+    #     parse_white_space_or_new_line_or_word_end = fn state ->
+    #       case {parse_white_space(state), parse_new_line(state), parse_word_end(state)} do
+    #         {ok = {:ok, _state}, _, _} -> ok
+    #         {_, ok = {:ok, _state}, _} -> ok
+    #         {_, _, ok = {:ok, _state}} -> ok
+    #         _ -> error(state)
+    #       end
+    #     end
+    #
+    #     state
+    #     |> ok()
+    #     |> chain(&parse_identifier(&1, path: [:current, :element, :instruction]))
+    #     |> chain(parse_white_space_or_new_line_or_word_end)
+    parse_identifier(state, path: [:current, :element, :instruction])
   end
 
   @doc """

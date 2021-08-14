@@ -44,7 +44,7 @@ op_code = "add" | "sub" | "mult" | "div" | "addi"
 operand = register
         | "(", ws, register, ws, ")"
         | addr_immd, ws, [ "(", ws, register, ws, ")" ]
-        | identifier, ( ws | <NEW_LINE> | word_end ) ;
+        | identifier ;
 
 register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
          | "$a0" | "$a1" | "$a2" | "$a3"

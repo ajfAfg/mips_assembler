@@ -64,7 +64,7 @@ defmodule MipsAssembler.CLI do
       statements
       |> Enum.filter(fn {error, _} -> error === :error end)
       |> Enum.each(fn {_error, {line_number, _element}} ->
-        IO.puts("Syntax Error (#{line_number + 1})")
+        IO.puts("Syntax Error (#{line_number})")
       end)
 
       System.halt(1)
