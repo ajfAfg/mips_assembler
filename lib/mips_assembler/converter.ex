@@ -25,8 +25,8 @@ defmodule MipsAssembler.Converter do
       {
         %{"_start" => 0, "foo" => 1},
         [
-          %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: nil},
-          %MipsAssembler.Instruction.J{op: "j", address: "foo"}
+          {0, %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: nil}},
+          {1, %MipsAssembler.Instruction.J{op: "j", address: "foo"}}
         ]
       }
   """
@@ -49,9 +49,9 @@ defmodule MipsAssembler.Converter do
       iex> convert_label_and_instruction(%{label: "foo", instruction: {}}, {%{}, []})
       {%{"foo" => 0}, []}
       iex> convert_label_and_instruction(%{label: "", instruction: {"j", "foo"}}, {%{}, []})
-      {%{}, [%MipsAssembler.Instruction.J{op: "j", address: "foo"}]}
+      {%{}, [{0, %MipsAssembler.Instruction.J{op: "j", address: "foo"}}]}
       iex> convert_label_and_instruction(%{label: "foo", instruction: {"j", "foo"}}, {%{}, []})
-      {%{"foo" => 0}, [%MipsAssembler.Instruction.J{op: "j", address: "foo"}]}
+      {%{"foo" => 0}, [{0, %MipsAssembler.Instruction.J{op: "j", address: "foo"}}]}
   """
   def convert_label_and_instruction(%{label: "", instruction: {}}, acc), do: acc
 
@@ -62,7 +62,7 @@ defmodule MipsAssembler.Converter do
         %{label: "", instruction: instruction},
         {labels, instructions}
       ),
-      do: {labels, [convert_instruction(instruction) | instructions]}
+      do: {labels, [{length(instructions), convert_instruction(instruction)} | instructions]}
 
   def convert_label_and_instruction(
         %{label: label, instruction: instruction},
@@ -70,7 +70,7 @@ defmodule MipsAssembler.Converter do
       ),
       do:
         {append_label(labels, label, length(instructions)),
-         [convert_instruction(instruction) | instructions]}
+         [{length(instructions), convert_instruction(instruction)} | instructions]}
 
   @doc """
   append label

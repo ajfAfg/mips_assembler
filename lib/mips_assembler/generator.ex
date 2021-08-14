@@ -13,8 +13,8 @@ defmodule MipsAssembler.Generator do
   ## Example
       iex> import MipsAssembler.Generator, only: [generate_binary: 2]
       iex> instructions = [
-      ...>   %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: nil},
-      ...>   %MipsAssembler.Instruction.J{op: "j", address: "foo"}
+      ...>   {0, %MipsAssembler.Instruction.R{op: "add", rd: "$t0", rs: "$t1", rt: "$t2", shamt: nil}},
+      ...>   {1, %MipsAssembler.Instruction.J{op: "j", address: "foo"}}
       ...> ]
       iex> labels = %{"_start" => 0, "foo" => 1}
       iex> generate_binary(instructions, labels)
@@ -40,14 +40,14 @@ defmodule MipsAssembler.Generator do
       iex> alias MipsAssembler.Instruction.I
       iex> alias MipsAssembler.Instruction.J
       iex> import MipsAssembler.Generator, only: [generate: 2]
-      iex> R.new(%{op: "sll", rd: "$t0", rt: "$t1", shamt: 1}) |> generate(%{})
+      iex> {0, R.new(%{op: "sll", rd: "$t0", rt: "$t1", shamt: 1})} |> generate(%{})
       "00000000000010010100000001000000"
-      iex> I.new(%{op: "addi", rs: "$t1", rt: "$t0", immd: -1}) |> generate(%{})
+      iex> {0, I.new(%{op: "addi", rs: "$t1", rt: "$t0", immd: -1})} |> generate(%{})
       "00100001001010001111111111111111"
-      iex> J.new(%{op: "j", address: "foo"}) |> generate(%{"foo" => 1})
+      iex> {0, J.new(%{op: "j", address: "foo"})} |> generate(%{"foo" => 1})
       "00001000000000000000000000000001"
   """
-  def generate(instruction = %R{}, _labels) do
+  def generate({_address, instruction = %R{}}, _labels) do
     [
       generate_op(instruction),
       generate_rs(instruction),
@@ -59,17 +59,17 @@ defmodule MipsAssembler.Generator do
     |> _generate()
   end
 
-  def generate(instruction = %I{}, labels) do
+  def generate({address, instruction = %I{}}, labels) do
     [
       generate_op(instruction),
       generate_rs(instruction),
       generate_rt(instruction),
-      generate_immd(instruction, labels)
+      generate_immd(instruction, address, labels)
     ]
     |> _generate()
   end
 
-  def generate(instruction = %J{}, labels) do
+  def generate({_address, instruction = %J{}}, labels) do
     [
       generate_op(instruction),
       generate_address(instruction, labels)
@@ -192,14 +192,16 @@ defmodule MipsAssembler.Generator do
   @doc """
   immd
   """
-  def generate_immd(%I{immd: immd}, labels), do: generate_label_or_immd(immd, labels, 16)
-  def generate_immd(_, _), do: :error
+  def generate_immd(%I{immd: immd}, address, labels),
+    do: generate_label_or_immd(immd, address, labels, 16)
+
+  def generate_immd(_, _, _), do: :error
 
   @doc """
   address
   """
   def generate_address(%J{address: address}, labels),
-    do: generate_label_or_immd(address, labels, 26)
+    do: generate_label_or_immd(address, 0, labels, 26)
 
   def generate_address(_, _), do: :error
 
@@ -241,10 +243,10 @@ defmodule MipsAssembler.Generator do
   def generate_register(nil), do: "00000"
   def generate_register(_), do: :error
 
-  def generate_label(label, labels, size) do
+  def generate_label(label, base_address, labels, size) do
     case Map.get(labels, label) do
       nil -> :error
-      address -> convert_binary(address, size)
+      address -> convert_binary(address - base_address, size)
     end
   end
 
@@ -258,8 +260,8 @@ defmodule MipsAssembler.Generator do
 
   defp convert_binary(_, _), do: :error
 
-  defp generate_label_or_immd(value, labels, size) do
-    case {generate_label(value, labels, size), convert_binary(value, size)} do
+  defp generate_label_or_immd(value, base_address, labels, size) do
+    case {generate_label(value, base_address, labels, size), convert_binary(value, size)} do
       {:error, :error} -> :error
       {:error, immd_bin} -> immd_bin
       {label_bin, _} -> label_bin

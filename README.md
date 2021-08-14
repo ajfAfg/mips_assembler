@@ -33,18 +33,11 @@ label = identifier, ":" ;
 
 instrution = op_code, ws, operand, [ ws, ",", ws, operand, [ ws, ",", ws, operand ] ]
 
-op_code = "add" | "sub" | "mult" | "div" | "addi"
-        | "addu" | "subu" | "multu" | "divu" | "addiu"
-        | "and" | "or" | "nor" | "xor" | "andi" | "ori" | "xori"
-        | "sll" | "srl" | "sllv" | "srlv" | "sra" | "srav"
-        | "lw" | "sw" | "mfhi" | "mflo" | "mthi" | "mtlo"
-        | "slt" | "sltu" | "slti" | "sltiu"
-        | "beq" | "bne" | "bgez" | "bgtz" | "blez" | "bltz"
-        | "j" | "jal" | "jr" | "jalr" ;
+op_code = identifier ;
 operand = register
         | "(", ws, register, ws, ")"
         | addr_immd, ws, [ "(", ws, register, ws, ")" ]
-        | identifier ;
+        | identifier, ( ws | <NEW_LINE> | word_end ) ;
 
 register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
          | "$a0" | "$a1" | "$a2" | "$a3"
