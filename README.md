@@ -39,7 +39,7 @@ op_code = identifier ;
 operand = register
         | "(", ws, register, ws, ")"
         | addr_immd, ws, [ "(", ws, register, ws, ")" ]
-        | identifier, ( ws | <NEW_LINE> | word_end ) ;
+        | identifier, ( ws | <NEW_LINE> | <EOF> ) ;
 
 register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
          | "$a0" | "$a1" | "$a2" | "$a3"
@@ -50,8 +50,6 @@ register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
 addr_immd = [ "+" | "-" ], ws, { digit } ;
 
 identifier = ( char | "_" ), { ( char | digit | "_" ) } ;
-
-word_end = "" ;
 
 char = "A" | "B" | "C" | "D" | "E" | "F" | "G"
      | "H" | "I" | "J" | "K" | "L" | "M" | "N"
@@ -67,6 +65,6 @@ ws = ? white_space characters ? ;
 
 ## Reference
 
-[BNF for MIPS](https://www.cse.iitd.ac.in/~nvkrishna/courses/winter07/grammar+spec/mips.html)
-[EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form)
-[Opcodes](https://opencores.org/projects/plasma/opcodes)
+- [BNF for MIPS](https://www.cse.iitd.ac.in/~nvkrishna/courses/winter07/grammar+spec/mips.html)
+- [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form)
+- [Opcodes](https://opencores.org/projects/plasma/opcodes)
