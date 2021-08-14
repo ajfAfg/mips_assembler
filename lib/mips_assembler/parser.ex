@@ -106,19 +106,7 @@ defmodule MipsAssembler.Parser do
   end
 
   defp parse_new_line_or_eof(state) do
-    parse_one = fn state ->
-      state
-      |> ok()
-      |> chain(&parse_new_line/1)
-    end
-
-    parse_two = fn state ->
-      state
-      |> ok()
-      |> chain(&parse_eof/1)
-    end
-
-    case {parse_one.(state), parse_two.(state)} do
+    case {parse_new_line(state), parse_eof(state)} do
       {ok = {:ok, _state}, _} -> ok
       {_, ok = {:ok, _state}} -> ok
       _ -> error(state)
@@ -153,15 +141,12 @@ defmodule MipsAssembler.Parser do
          }
        ) do
     rest = Regex.replace(~r{^.*\n}f, string, "")
-    # rest = String.replace(string, ~r{^.*}f, "")
     statement = error({line_number + 1, element})
 
     state
     |> put_in([:string], rest)
     |> put_in([:statements], [statement | statements])
     |> put_in([:current, :line_number], line_number + 1)
-
-    # %{state | string: rest, statements: [statement | statements]}
   end
 
   @doc """
@@ -602,9 +587,7 @@ defmodule MipsAssembler.Parser do
         state = %{string: string, current: %{element: %{instruction: instruction}}},
         path: path
       ) do
-    # case Regex.split(~r{^([[:alpha]]|_)([[:alpha:]]|\d|_)*}f, string,
     case Regex.split(~r{^([a-zA-Z]|_)([a-zA-Z]|\d|_)*}f, string,
-           # case Regex.split(~r{^([[:alpha]]|_)(\w|\d|_)*}f, string,
            include_captures: true,
            trim: true
          ) do

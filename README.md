@@ -67,3 +67,4 @@ ws = ? white_space characters ? ;
 
 [BNF for MIPS](https://www.cse.iitd.ac.in/~nvkrishna/courses/winter07/grammar+spec/mips.html)
 [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form)
+[Opcodes](https://opencores.org/projects/plasma/opcodes)
