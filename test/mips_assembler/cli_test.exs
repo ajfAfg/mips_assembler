@@ -12,8 +12,25 @@ defmodule CliTest do
   test "assemble" do
     process("test/test_program/foo.s")
 
-    assert File.read!("test/test_program/foo.txt") ===
-             "00000001001010100100000000100000\n00001000000000000000000000000001"
+    assert File.read!("test/test_program/foo.txt") === """
+           00000001001010100100000000100000
+           00001000000000000000000000000001
+           """
+
+    process("test/test_program/load_and_store.s")
+
+    assert File.read!("test/test_program/load_and_store.txt") === """
+           00100000000010000000000000000001
+           00100000000010010000000000000010
+           10101100000010000000000000000000
+           10101100000010010000000000000100
+           00000000000000001011100000100000
+           10001110111100000000000000000000
+           10001110111100010000000000000100
+           00100010111010000000000000001000
+           10101101000100010000000000000000
+           00001000000000000000000000001001
+           """
   end
 
   #   test "three values returned if three given" do

@@ -49,12 +49,6 @@ defmodule MipsAssembler.CLI do
 
       File.write(output, binary)
     end)
-
-    # Issues.GithubIssues.fetch(user, project)
-    # |> decode_response()
-    # |> sort_into_descending_order()
-    # |> last(count)
-    # |> print_table_for_columns(["number", "created_at", "title"])
   end
 
   def parse_assembly(string) do
@@ -70,7 +64,7 @@ defmodule MipsAssembler.CLI do
       statements
       |> Enum.filter(fn {error, _} -> error === :error end)
       |> Enum.each(fn {_error, {line_number, _element}} ->
-        IO.puts("Syntax Error (#{line_number})")
+        IO.puts("Syntax Error (#{line_number + 1})")
       end)
 
       System.halt(1)

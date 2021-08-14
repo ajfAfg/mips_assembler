@@ -18,7 +18,7 @@ defmodule MipsAssembler.Generator do
       ...> ]
       iex> labels = %{"_start" => 0, "foo" => 1}
       iex> generate_binary(instructions, labels)
-      "00000001001010100100000000100000\n00001000000000000000000000000001"
+      "00000001001010100100000000100000\n00001000000000000000000000000001\n"
   """
   def generate_binary(instructions, labels) do
     # instructions
@@ -28,7 +28,7 @@ defmodule MipsAssembler.Generator do
     if Enum.any?(binaries, &(&1 === :error)) do
       :error
     else
-      Enum.join(binaries, "\n")
+      Enum.join(binaries, "\n") <> "\n"
     end
   end
 

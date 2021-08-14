@@ -10,6 +10,7 @@ defmodule MipsAssembler.Parser do
   def parse(string) do
     string
     |> init()
+    # |> IO.inspect()
     |> parse_program()
     |> Enum.reverse()
   end
@@ -102,6 +103,7 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&skip_white_space/1)
+    # |> IO.inspect()
     |> chain(&parse_new_line_or_eof/1)
   end
 
@@ -142,6 +144,7 @@ defmodule MipsAssembler.Parser do
   defp next_stmt({:error, state}) do
     state
     |> skip_current_statement()
+    # |> IO.inspect()
     |> put_in([:current, :element], @init_element)
   end
 
@@ -149,11 +152,11 @@ defmodule MipsAssembler.Parser do
          state = %{
            string: string,
            statements: statements,
-           current: %{line_number: line_number}
+           current: %{line_number: line_number, element: element}
          }
        ) do
     rest = Regex.replace(~r{^.*\n}f, string, "")
-    statement = error({line_number, @init_element})
+    statement = error({line_number, element})
     %{state | string: rest, statements: [statement | statements]}
   end
 
@@ -259,7 +262,7 @@ defmodule MipsAssembler.Parser do
       iex> parse_instruction(%{state | string: "j foo\nhoge"})
       {:ok, %{string: "hoge", current: %{line_number: 1, element: %{instruction: {"j", "foo"}}}}}
       iex> parse_instruction(%{state | string: "add$t0,$t1,$t2"})
-      {:error, %{string: "$t0,$t1,$t2", current: %{line_number: 0, element: %{instruction: {"add"}}}}}
+      {:error, %{string: "add$t0,$t1,$t2", current: %{line_number: 0, element: %{instruction: {}}}}}
   """
   def parse_instruction(state) do
     parse_optional = fn state ->
@@ -278,8 +281,9 @@ defmodule MipsAssembler.Parser do
     state
     |> ok()
     |> chain(&parse_op_code/1)
-    |> chain(&parse_white_space/1)
+    # |> chain(&parse_white_space/1)
     |> chain(&skip_white_space/1)
+    # |> IO.inspect()
     |> chain(&parse_operand/1)
     |> case do
       err = {:error, _state} ->
@@ -300,9 +304,9 @@ defmodule MipsAssembler.Parser do
       iex> import MipsAssembler.Parser, only: [parse_op_code: 1]
       iex> state = %{string: "add $t0, $t1, $t2", current: %{element: %{instruction: {}}}}
       iex> parse_op_code(state)
-      {:ok, %{string: " $t0, $t1, $t2", current: %{element: %{instruction: {"add"}}}}}
-      iex> parse_op_code(%{state | string: "aff $t0, $t1, $t2"})
-      {:error, %{string: "aff $t0, $t1, $t2", current: %{element: %{instruction: {}}}}}
+      {:ok, %{string: "$t0, $t1, $t2", current: %{element: %{instruction: {"add"}}}}}
+      iex> parse_op_code(%{state | string: "aff $t0, $t1, $t2"})  # Parsing is possible.
+      {:ok, %{string: "$t0, $t1, $t2", current: %{element: %{instruction: {"aff"}}}}}
   """
   def parse_op_code(
         state = %{
@@ -310,18 +314,31 @@ defmodule MipsAssembler.Parser do
           current: %{element: %{instruction: instruction}}
         }
       ) do
-    case _parse_op_code(string) do
-      {"", ^string} ->
-        error(state)
-
-      {op_code, rest} ->
+    case Regex.split(~r{\t| }f, string, parts: 2) do
+      [op_code, rest] ->
         instruction = Tuple.append(instruction, op_code)
 
         state
         |> put_in([:current, :element, :instruction], instruction)
         |> put_in([:string], rest)
         |> ok()
+
+      _ ->
+        error(state)
     end
+
+    #     case _parse_op_code(string) do
+    #       {"", ^string} ->
+    #         error(state)
+    #
+    #       {op_code, rest} ->
+    #         instruction = Tuple.append(instruction, op_code)
+    #
+    #         state
+    #         |> put_in([:current, :element, :instruction], instruction)
+    #         |> put_in([:string], rest)
+    #         |> ok()
+    #     end
   end
 
   def parse_op_code(state), do: error(state)
@@ -575,6 +592,13 @@ defmodule MipsAssembler.Parser do
       {:error, %{string: "foo", current: %{line_number: 0}}}
   """
   def parse_new_line(state = %{string: "\n" <> rest, current: %{line_number: line_number}}) do
+    state
+    |> put_in([:current, :line_number], line_number + 1)
+    |> put_in([:string], rest)
+    |> ok()
+  end
+
+  def parse_new_line(state = %{string: "\r\n" <> rest, current: %{line_number: line_number}}) do
     state
     |> put_in([:current, :line_number], line_number + 1)
     |> put_in([:string], rest)
