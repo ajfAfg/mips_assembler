@@ -30,7 +30,12 @@ defmodule MipsAssembler.CLI do
 
   def process(:help) do
     IO.puts("""
-      usage: mips_assembler <file name>
+      Usage: mips_assembler <.s file> [options]
+
+      ## Options
+        -h          Same as `--help`
+
+        --help      Display available options
     """)
 
     System.halt(0)
