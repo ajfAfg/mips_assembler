@@ -451,9 +451,9 @@ defmodule MipsAssembler.Parser do
   defp _parse_register("$v1" <> rest), do: {"$v1", rest}
   defp _parse_register("$v2" <> rest), do: {"$v2", rest}
   defp _parse_register("$a0" <> rest), do: {"$a0", rest}
-  defp _parse_register("$a1" <> rest), do: {"$a0", rest}
-  defp _parse_register("$a2" <> rest), do: {"$a1", rest}
-  defp _parse_register("$a3" <> rest), do: {"$a2", rest}
+  defp _parse_register("$a1" <> rest), do: {"$a1", rest}
+  defp _parse_register("$a2" <> rest), do: {"$a2", rest}
+  defp _parse_register("$a3" <> rest), do: {"$a3", rest}
   defp _parse_register("$t0" <> rest), do: {"$t0", rest}
   defp _parse_register("$t1" <> rest), do: {"$t1", rest}
   defp _parse_register("$t2" <> rest), do: {"$t2", rest}
