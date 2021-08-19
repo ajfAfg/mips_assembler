@@ -2,24 +2,30 @@ defmodule CliTest do
   use ExUnit.Case
   doctest MipsAssembler
 
-  import MipsAssembler.CLI, only: [parse_args: 1, process: 1]
+  import MipsAssembler.CLI, only: [parse_args: 1, assemble: 1]
 
   test ":help returned by option parsing with -h and --help options" do
     assert parse_args(["-h", "anything"]) == :help
     assert parse_args(["--help", "anything"]) == :help
   end
 
-  test "assemble" do
-    process("test/test_program/foo.s")
+  setup do
+    [
+      foo: File.read!("test/test_program/foo.s"),
+      load_and_store: File.read!("test/test_program/load_and_store.s"),
+      array: File.read!("test/test_program/array.s"),
+      while: File.read!("test/test_program/while.s"),
+      hanoi: File.read!("test/test_program/hanoi.s")
+    ]
+  end
 
-    assert File.read!("test/test_program/foo.txt") === """
+  test "assemble", fixture do
+    assert assemble(fixture.foo) === """
            00000001001010100100000000100000
            00001000000000000000000000000001
            """
 
-    process("test/test_program/load_and_store.s")
-
-    assert File.read!("test/test_program/load_and_store.txt") === """
+    assert assemble(fixture.load_and_store) === """
            00100000000010000000000000000001
            00100000000010010000000000000010
            10101100000010000000000000000000
@@ -32,9 +38,7 @@ defmodule CliTest do
            00001000000000000000000000001001
            """
 
-    process("test/test_program/array.s")
-
-    assert File.read!("test/test_program/array.txt") === """
+    assert assemble(fixture.array) === """
            00100000000100000000000000000010
            00000000000000001011100000100000
            00100000000010000000000000000000
@@ -56,9 +60,7 @@ defmodule CliTest do
            00001000000000000000000000010010
            """
 
-    process("test/test_program/while.s")
-
-    assert File.read!("test/test_program/while.txt") === """
+    assert assemble(fixture.while) === """
            00000000000000001000000000100000
            00000000000000001011100000100000
            00101010000010000000000000001010
@@ -71,9 +73,7 @@ defmodule CliTest do
            00001000000000000000000000001001
            """
 
-    process("test/test_program/hanoi.s")
-
-    assert File.read!("test/test_program/hanoi.txt") === """
+    assert assemble(fixture.hanoi) === """
            00100000000111010000000000000001
            00000000000111011110101010000000
            00100000000001000000000000000101
