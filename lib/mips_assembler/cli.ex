@@ -44,9 +44,7 @@ defmodule MipsAssembler.CLI do
   def process(file_name) do
     file_name
     |> File.read!()
-    |> parse_assembly()
-    |> convert_into_intermediate_representation()
-    |> generate_binary_code()
+    |> assemble()
     |> Kernel.then(fn binary ->
       output =
         Path.dirname(file_name) <>
@@ -54,6 +52,13 @@ defmodule MipsAssembler.CLI do
 
       File.write(output, binary)
     end)
+  end
+
+  def assemble(string) do
+    string
+    |> parse_assembly()
+    |> convert_into_intermediate_representation()
+    |> generate_binary_code()
   end
 
   def parse_assembly(string) do
