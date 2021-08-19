@@ -1,6 +1,6 @@
 defmodule MipsAssembler.CLI do
-  @input_extention ".s"
-  @output_extention ".txt"
+  @output_extension ".txt"
+  @output_dir "."
 
   @moduledoc """
   Handle the command line parsing and the dispatch to
@@ -20,12 +20,14 @@ defmodule MipsAssembler.CLI do
   Otherwise it is a file name of MIPS code.
   """
   def parse_args(argv) do
-    OptionParser.parse(argv, switches: [help: :boolean], aliases: [h: :help])
+    OptionParser.parse(argv, aliases: [h: :help], strict: [output_dir: :string, help: :boolean])
+    |> Kernel.then(fn {parsed, argv, _errors} -> {Map.new(parsed), argv} end)
     |> _parse_args()
   end
 
-  defp _parse_args({[help: true], _, _}), do: :help
-  defp _parse_args({_, [file_name], _}), do: file_name
+  defp _parse_args({%{help: true}, _}), do: :help
+  defp _parse_args({%{output_dir: output_dir}, [file_name]}), do: {file_name, output_dir}
+  defp _parse_args({_, [file_name]}), do: {file_name, @output_dir}
   defp _parse_args(_), do: :help
 
   def process(:help) do
@@ -33,24 +35,27 @@ defmodule MipsAssembler.CLI do
       Usage: mips_assembler <.s file> [options]
 
       ## Options
-        -h          Same as `--help`
+        -h              Same as `--help`
 
-        --help      Display available options
+        --help          Display available options
+        --output-dir    Specify output directory
     """)
 
     System.halt(0)
   end
 
-  def process(file_name) do
+  def process({file_name, output_dir}) do
     file_name
     |> File.read!()
     |> MipsAssembler.assemble()
     |> Kernel.then(fn binary ->
-      output =
-        Path.dirname(file_name) <>
-          "/" <> Path.basename(file_name, @input_extention) <> @output_extention
-
-      File.write(output, binary)
+      generate_output_file_name(file_name, @output_extension, output_dir)
+      |> File.write(binary)
     end)
+  end
+
+  def generate_output_file_name(file_name, output_extension, output_dir) do
+    basename = file_name |> Path.extname() |> Kernel.then(&Path.basename(file_name, &1))
+    output_dir <> "/" <> basename <> "." <> output_extension
   end
 end
