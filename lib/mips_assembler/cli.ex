@@ -1,5 +1,5 @@
 defmodule MipsAssembler.CLI do
-  @output_extension ".txt"
+  @output_extension "txt"
   @output_dir "."
 
   @moduledoc """
