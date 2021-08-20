@@ -10,7 +10,7 @@ Run escript.
 ./mips_assembler foo.s
 ```
 
-escript mips_assembler is placed to the top directory.
+The escript mips_assembler is placed to the top directory.
 
 Note that you must have the Erlang VM installed in your environment to run escript.
 
