@@ -1,5 +1,5 @@
 defmodule RTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest MipsAssembler.Instruction.R
 
   alias MipsAssembler.Instruction.R

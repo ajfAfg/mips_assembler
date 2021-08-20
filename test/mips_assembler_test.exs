@@ -1,5 +1,5 @@
 defmodule MipsAssemblerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest MipsAssembler
 
   import MipsAssembler, only: [assemble: 1]

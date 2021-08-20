@@ -1,5 +1,5 @@
 defmodule JTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest MipsAssembler.Instruction.J
 
   alias MipsAssembler.Instruction.J
