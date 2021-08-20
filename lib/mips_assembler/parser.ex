@@ -329,8 +329,8 @@ defmodule MipsAssembler.Parser do
       {:ok, %{string: "", current: %{element: %{instruction: {"lw", "-4", "$t0"}}}}}
       iex> parse_operand(%{string: "foo\nbaz", current: %{line_number: 0, element: %{instruction: {"j"}}}})
       {:ok, %{string: "\nbaz", current: %{line_number: 0, element: %{instruction: {"j", "foo"}}}}}
-      iex> parse_operand(%{state | string: "foo($t0)"})
-      {:error, %{string: "foo($t0)", current: %{element: %{instruction: {"lw"}}}}}
+      iex> parse_operand(%{state | string: "foo($t0)"})  # Parsing is possible.
+      {:ok, %{string: "($t0)", current: %{element: %{instruction: {"lw", "foo"}}}}}
   """
   def parse_operand(state) do
     case {parse_operand_one(state), parse_operand_two(state), parse_operand_three(state),
@@ -389,19 +389,9 @@ defmodule MipsAssembler.Parser do
   end
 
   defp parse_operand_four(state) do
-    match_white_space_or_new_line_or_eof = fn state ->
-      case {match_white_space(state), match_new_line(state), match_eof(state)} do
-        {ok = {:ok, _state}, _, _} -> ok
-        {_, ok = {:ok, _state}, _} -> ok
-        {_, _, ok = {:ok, _state}} -> ok
-        _ -> error(state)
-      end
-    end
-
     state
     |> ok()
     |> chain(&parse_identifier(&1, path: [:current, :element, :instruction]))
-    |> chain(match_white_space_or_new_line_or_eof)
   end
 
   @doc """
@@ -659,20 +649,6 @@ defmodule MipsAssembler.Parser do
   """
   def parse_colon(state = %{string: ":" <> rest}), do: put_in(state, [:string], rest) |> ok()
   def parse_colon(state), do: error(state)
-
-  # def parse_word_end(state = %{string: ""}), do: ok(state)
-  # def parse_word_end(state), do: error(state)
-
-  def match_white_space(state = %{string: " " <> _rest}), do: ok(state)
-  def match_white_space(state = %{string: "\t" <> _rest}), do: ok(state)
-  def match_white_space(state), do: error(state)
-
-  def match_new_line(state = %{string: "\r\n" <> _rest}), do: ok(state)
-  def match_new_line(state = %{string: "\n" <> _rest}), do: ok(state)
-  def match_new_line(state), do: error(state)
-
-  def match_eof(state = %{string: ""}), do: ok(state)
-  def match_eof(state), do: error(state)
 
   @doc """
   white space
