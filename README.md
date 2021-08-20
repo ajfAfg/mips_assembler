@@ -1,23 +1,79 @@
 # MipsAssembler
 
-This repository implements a very small subset of the MIPS assembler with pure Elixir.
+This repository implements a tiny subset of the MIPS assembler with pure Elixir.
 
-## Installation
+## Quick Start
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `mips_assembler` to your list of dependencies in `mix.exs`:
+Run escript.
 
-```elixir
-def deps do
-  [
-    {:mips_assembler, "~> 0.1.0"}
-  ]
-end
+```bash
+./mips_assembler foo.s
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/mips_assembler](https://hexdocs.pm/mips_assembler).
+escript mips_assembler is placed to the top directory.
+
+Note that you must have the Erlang VM installed in your environment to run escript.
+
+## Opcodes
+
+This MIPS assembler supports the following opcodes.
+
+- Arithmetic Logic Unit
+
+  - add
+  - addi
+  - addiu
+  - addu
+  - and
+  - andi
+  - nor
+  - or
+  - ori
+  - slt
+  - slti
+  - sltiu
+  - sltu
+  - sub
+  - subu
+  - xor
+  - xori
+
+- Shifter
+
+  - sll
+  - sllv
+  - sra
+  - srav
+  - srl
+  - srlv
+
+- Multiply
+
+  - div
+  - divu
+  - mfhi
+  - mflo
+  - mthi
+  - mtlo
+  - mult
+  - multu
+
+- Branch
+
+  - beq
+  - bgez
+  - bgtz
+  - blez
+  - bltz
+  - bne
+  - j
+  - jal
+  - jalr
+  - jr
+
+- Memory Access
+  - lw
+  - sw
 
 ## BNF
 
