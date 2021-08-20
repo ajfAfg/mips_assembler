@@ -10,12 +10,17 @@ defmodule CliTest do
       assert parse_args(["--help", "anything"]) == :help
     end
 
-    test "Return the file name and the default output directory" do
-      assert parse_args(["foo.s"]) === {"foo.s", "."}
+    test "Return the file name and the output directory by option parsing with --output-dir" do
+      assert parse_args(["--output-dir", "bar", "foo.s"]) === {"foo.s", "bar"}
     end
 
-    test "Return the file name and the output directory by option parsing with --output-dir" do
-      assert parse_args(["--output-dir", "foo", "bar.s"]) === {"bar.s", "foo"}
+    test "-h and --help options take precedence over other options" do
+      assert parse_args(["-h", "--output-dir", "bar", "foo.s"]) == :help
+      assert parse_args(["--help", "--output-dir", "bar", "foo.s"]) == :help
+    end
+
+    test "Return the file name and the default output directory when an output directory is not specified" do
+      assert parse_args(["foo.s"]) === {"foo.s", "."}
     end
   end
 
