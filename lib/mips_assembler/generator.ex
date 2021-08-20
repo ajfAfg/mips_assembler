@@ -1,7 +1,5 @@
 defmodule MipsAssembler.Generator do
-  @moduledoc """
-  generator
-  """
+  @moduledoc false
 
   alias MipsAssembler.Instruction.R
   alias MipsAssembler.Instruction.I

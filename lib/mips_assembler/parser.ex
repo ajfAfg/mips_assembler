@@ -1,9 +1,7 @@
 defmodule MipsAssembler.Parser do
   @init_element %{label: "", instruction: {}}
 
-  @moduledoc """
-  ok
-  """
+  @moduledoc false
 
   import MipsAssembler.Either, only: [ok: 1, error: 1, chain: 2]
 

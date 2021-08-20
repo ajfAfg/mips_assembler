@@ -3,9 +3,7 @@ defmodule MipsAssembler.Converter do
   @i %{op: nil, rs: nil, rt: nil, immd: nil}
   @j %{op: nil, address: nil}
 
-  @moduledoc """
-  converter
-  """
+  @moduledoc false
 
   alias MipsAssembler.Instruction.R
   alias MipsAssembler.Instruction.I

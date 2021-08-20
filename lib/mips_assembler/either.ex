@@ -1,6 +1,6 @@
 defmodule MipsAssembler.Either do
   @moduledoc """
-  either like
+  This is a module like Either type.
   """
 
   def ok(v), do: {:ok, v}
