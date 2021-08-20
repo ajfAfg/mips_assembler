@@ -389,19 +389,6 @@ defmodule MipsAssembler.Parser do
   end
 
   defp parse_operand_four(state) do
-    #     parse_white_space_or_new_line_or_word_end = fn state ->
-    #       case {parse_white_space(state), parse_new_line(state), parse_word_end(state)} do
-    #         {ok = {:ok, _state}, _, _} -> ok
-    #         {_, ok = {:ok, _state}, _} -> ok
-    #         {_, _, ok = {:ok, _state}} -> ok
-    #         _ -> error(state)
-    #       end
-    #     end
-    #
-    #     state
-    #     |> ok()
-    #     |> chain(&parse_identifier(&1, path: [:current, :element, :instruction]))
-    #     |> chain(parse_white_space_or_new_line_or_word_end)
     match_white_space_or_new_line_or_eof = fn state ->
       case {match_white_space(state), match_new_line(state), match_eof(state)} do
         {ok = {:ok, _state}, _, _} -> ok
