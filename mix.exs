@@ -5,7 +5,7 @@ defmodule MipsAssembler.MixProject do
     [
       app: :mips_assembler,
       escript: escript_config(),
-      version: "0.1.0",
+      version: "1.0.0",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       deps: deps()
