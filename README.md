@@ -95,7 +95,7 @@ op_code = identifier ;
 operand = register
         | "(", ws, register, ws, ")"
         | addr_immd, ws, [ "(", ws, register, ws, ")" ]
-        | identifier, ( ws | <NEW_LINE> | <EOF> ) ;
+        | identifier ;
 
 register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
          | "$a0" | "$a1" | "$a2" | "$a3"
@@ -105,9 +105,9 @@ register = "$zero" | "$at" | "$v0" | "$v1" | "$v2"
 
 addr_immd = [ "+" | "-" ], ws, { digit } ;
 
-identifier = ( char | "_" ), { ( char | digit | "_" ) } ;
+identifier = ( letter | "_" ), { ( letter | digit | "_" ) } ;
 
-char = "A" | "B" | "C" | "D" | "E" | "F" | "G"
+letter = "A" | "B" | "C" | "D" | "E" | "F" | "G"
      | "H" | "I" | "J" | "K" | "L" | "M" | "N"
      | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
      | "V" | "W" | "X" | "Y" | "Z" | "a" | "b"
