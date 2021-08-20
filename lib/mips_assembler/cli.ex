@@ -20,15 +20,25 @@ defmodule MipsAssembler.CLI do
   Otherwise it is a file name of MIPS code.
   """
   def parse_args(argv) do
-    OptionParser.parse(argv, aliases: [h: :help], strict: [output_dir: :string, help: :boolean])
-    |> Kernel.then(fn {parsed, argv, _errors} -> {Map.new(parsed), argv} end)
-    |> _parse_args()
+    argv
+    |> parse_option()
+    |> args_to_internal_representation()
   end
 
-  defp _parse_args({%{help: true}, _}), do: :help
-  defp _parse_args({%{output_dir: output_dir}, [file_name]}), do: {file_name, output_dir}
-  defp _parse_args({_, [file_name]}), do: {file_name, @output_dir}
-  defp _parse_args(_), do: :help
+  defp parse_option(argv) do
+    {parsed, argv, errors} =
+      OptionParser.parse(argv, aliases: [h: :help], strict: [output_dir: :string, help: :boolean])
+
+    {Map.new(parsed), argv, errors}
+  end
+
+  defp args_to_internal_representation({%{help: true}, _, _}), do: :help
+
+  defp args_to_internal_representation({%{output_dir: output_dir}, [file_name], _}),
+    do: {file_name, output_dir}
+
+  defp args_to_internal_representation({_, [file_name], _}), do: {file_name, @output_dir}
+  defp args_to_internal_representation(_), do: :help
 
   def process(:help) do
     IO.puts("""
